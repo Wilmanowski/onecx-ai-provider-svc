@@ -36,6 +36,7 @@ import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.ChatMessageDTOV1;
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.ChatRequestDTOV1;
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.ConversationDTOV1;
 import gen.org.tkit.onecx.ai.provider.runtime.client.model.AgentGroupSnapshot;
+import gen.org.tkit.onecx.ai.provider.runtime.client.model.ToolRuleSnapshot.AllowedEnum;
 import gen.org.tkit.onecx.ai.provider.runtime.client.model.ToolSnapshot;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
@@ -405,6 +406,36 @@ class RuntimeSnapshotMapperTest extends AbstractTest {
     }
 
     @Test
+    void mapTools_agentWithLegacyAllowPolicies_mapsRuntimeCompatibilityValues() {
+        var tool = new Tool();
+        tool.setId("tool-1");
+        tool.setName("searchTool");
+        tool.setType(ToolType.MCP);
+        tool.setUrl("http://mcp.local");
+        tool.setAuthMode(AuthMode.API_KEY);
+        tool.setExecutionPolicy(ExecutionPolicy.NEVER_ASK);
+
+        var agent = new Agent();
+        agent.setId("agent-1");
+        agent.setTools(Set.of(tool));
+
+        var rule = new AgentMcpToolRule();
+        rule.setTool(tool);
+        rule.setToolName("searchTool");
+        rule.setAllowed(ToolPermission.NEVER_ASK);
+
+        when(agentMcpToolRuleDAO.findByAgentAndToolIds("agent-1", List.of("tool-1")))
+                .thenReturn(List.of(rule));
+
+        var tools = mapper.mapTools(agent);
+        assertThat(tools).hasSize(1);
+        assertThat(tools.get(0).getExecutionPolicy()).isEqualTo(ToolSnapshot.ExecutionPolicyEnum.NEVER_ASK);
+        assertThat(tools.get(0).getToolRules()).hasSize(1);
+        assertThat(tools.get(0).getToolRules().get(0).getAllowed()).isEqualTo(
+                AllowedEnum.ALLOW);
+    }
+
+    @Test
     void mapTools_agentWithGlobalTools_mapsGlobalToolRules() {
         var globalTool = new GlobalTool();
         globalTool.setId("gtool-1");
@@ -430,9 +461,10 @@ class RuntimeSnapshotMapperTest extends AbstractTest {
         assertThat(tools).hasSize(1);
         assertThat(tools.get(0).getName()).isEqualTo("globalRead");
         assertThat(tools.get(0).getAuthMode()).isNull();
-        assertThat(tools.get(0).getExecutionPolicy()).isNull();
+        assertThat(tools.get(0).getExecutionPolicy()).isEqualTo(ToolSnapshot.ExecutionPolicyEnum.ALWAYS_ASK);
         assertThat(tools.get(0).getToolRules()).hasSize(1);
-        assertThat(tools.get(0).getToolRules().get(0).getAllowed()).isNull();
+        assertThat(tools.get(0).getToolRules().get(0).getAllowed()).isEqualTo(
+                AllowedEnum.ALWAYS_ASK);
     }
 
     @Test

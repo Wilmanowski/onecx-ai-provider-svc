@@ -31,14 +31,14 @@
 
 	<!-- Agent -->
 	<AGENT guid="agent-11-111" optlock="0" name="agent1" description="agent_description_1" additional_prompt="agent_additional_prompt_1" a2a_enabled="false" status="LIVE" model_id="model-11-111" scaffold_id="scaffold-11-111" tenant_id="default" creationuser="user1"/>
-	<AGENT guid="agent-22-222" optlock="0" name="agent2" description="agent_description_2" additional_prompt="agent_additional_prompt_2" a2a_enabled="true" status="DRAFT" model_id="model-22-222" global_scaffold_id="gscaffold-11-111" tenant_id="default" creationuser="user1" filter_key="APP_ID" filter_value="onecx-*"/>
+	<AGENT guid="agent-22-222" optlock="0" name="agent2" description="agent_description_2" additional_prompt="agent_additional_prompt_2" a2a_enabled="true" voice_enabled="true" language_code="en" status="DRAFT" model_id="model-22-222" global_scaffold_id="gscaffold-11-111" tenant_id="default" creationuser="user1" filter_key="APP_ID" filter_value="onecx-*"/>
 	<AGENT guid="agent-33-333" optlock="0" name="agent3" description="agent_no_groups" additional_prompt="" a2a_enabled="false" status="LIVE" model_id="model-11-111" tenant_id="default" creationuser="user1" filter_key="APP_ID" filter_value="no-groups-app"/>
 	<AGENT guid="agent-44-444" optlock="0" name="agent4" description="agent_no_groups" additional_prompt="" a2a_enabled="false" status="LIVE" model_id="model-11-111" tenant_id="default" creationuser="user1" filter_key="APP_ID" filter_value="onecx-test-*"/>
 
 	<!-- Agent MCP tool rules -->
 	<AGENT_MCP_TOOL_RULE guid="rule-11-111" optlock="0" agent_id="agent-11-111" tool_id="tool-11-111" tool_name="getProposal" tool_description="Reads a proposal" allowed="ALLOW" tenant_id="default" creationuser="user1"/>
 	<AGENT_MCP_TOOL_RULE guid="rule-22-222" optlock="0" agent_id="agent-11-111" tool_id="tool-11-111" tool_name="deleteProposal" tool_description="Deletes a proposal" allowed="DENY" tenant_id="default" creationuser="user1"/>
-	<AGENT_MCP_TOOL_RULE guid="rule-33-333" optlock="0" agent_id="agent-22-222" global_tool_id="gtool-11-111" tool_name="globalRead" tool_description="Global read tool" allowed="ALLOW" tenant_id="default" creationuser="user1"/>
+	<AGENT_MCP_TOOL_RULE guid="rule-33-333" optlock="0" agent_id="agent-22-222" global_tool_id="gtool-11-111" tool_name="globalRead" tool_description="Global read tool" allowed="NEVER_ASK" tenant_id="default" creationuser="user1"/>
 	<AGENT_MCP_TOOL_RULE guid="rule-44-444" optlock="0" tool_id="tool-11-111" tool_name="orphanRule" tool_description="Rule with no agent" allowed="DENY" tenant_id="default" creationuser="user1"/>
 
 	<!-- Relation tables -->

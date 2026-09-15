@@ -3,6 +3,11 @@ package org.tkit.onecx.ai.provider.rs.internal.controllers;
 import static jakarta.transaction.Transactional.TxType.NOT_SUPPORTED;
 
 import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -14,6 +19,7 @@ import jakarta.ws.rs.core.Response;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 import org.tkit.onecx.ai.provider.common.services.agent.AgentService;
+import org.tkit.onecx.ai.provider.config.AiProviderConfig;
 import org.tkit.onecx.ai.provider.domain.daos.AgentDAO;
 import org.tkit.onecx.ai.provider.domain.daos.AgentGroupDAO;
 import org.tkit.onecx.ai.provider.domain.daos.AgentMcpToolRuleDAO;
@@ -21,6 +27,7 @@ import org.tkit.onecx.ai.provider.domain.daos.GlobalToolDAO;
 import org.tkit.onecx.ai.provider.domain.daos.ModelDAO;
 import org.tkit.onecx.ai.provider.domain.daos.ScaffoldDAO;
 import org.tkit.onecx.ai.provider.domain.daos.ToolDAO;
+import org.tkit.onecx.ai.provider.domain.models.Agent;
 import org.tkit.onecx.ai.provider.domain.models.AgentGroup;
 import org.tkit.onecx.ai.provider.domain.models.AgentMcpToolRule;
 import org.tkit.onecx.ai.provider.domain.models.GlobalTool;
@@ -40,6 +47,7 @@ import gen.org.tkit.onecx.ai.provider.rs.internal.model.AgentMcpToolRuleListDTO;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.AgentSearchCriteriaDTO;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.CreateAgentMcpToolRuleRequestDTO;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.CreateAgentRequestDTO;
+import gen.org.tkit.onecx.ai.provider.rs.internal.model.ProblemDetailInvalidParamDTO;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.ProblemDetailResponseDTO;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.UpdateAgentMcpToolRuleRequestDTO;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.UpdateAgentRequestDTO;
@@ -95,9 +103,19 @@ public class AgentRestController implements AgentInternalApi {
     @Inject
     AgentService agentService;
 
+    @Inject
+    AiProviderConfig config;
+
     @Override
     public Response createAgent(CreateAgentRequestDTO createAgentRequestDTO) {
-        var context = agentService.createAgent(mapper.mapCreate(createAgentRequestDTO));
+        var agent = mapper.mapCreate(createAgentRequestDTO);
+        normalizeLanguageCode(agent);
+        var validationError = validateVoicePilot(agent.getVoiceEnabled(), agent.getLanguageCode());
+        if (validationError != null) {
+            return validationError;
+        }
+
+        var context = agentService.createAgent(agent);
         return Response.status(Response.Status.CREATED).entity(mapper.map(context)).build();
     }
 
@@ -175,6 +193,12 @@ public class AgentRestController implements AgentInternalApi {
         }
 
         mapper.mapUpdate(item, updateAgentRequestDTO, toolsToAdd, model, scaffold, groupsToAdd);
+        normalizeLanguageCode(item);
+        var validationError = validateVoicePilot(item.getVoiceEnabled(), item.getLanguageCode());
+        if (validationError != null) {
+            return validationError;
+        }
+
         item = dao.update(item);
         return Response.status(Response.Status.OK).entity(mapper.map(item)).build();
     }
@@ -241,6 +265,57 @@ public class AgentRestController implements AgentInternalApi {
             return true;
         }
         return rule.getGlobalTool() != null && toolId.equals(rule.getGlobalTool().getId());
+    }
+
+    private void normalizeLanguageCode(Agent agent) {
+        if (agent == null || agent.getLanguageCode() == null) {
+            return;
+        }
+
+        var normalized = agent.getLanguageCode().trim();
+        agent.setLanguageCode(normalized.isEmpty() ? null : normalized);
+    }
+
+    private Response validateVoicePilot(Boolean voiceEnabled, String languageCode) {
+        if (!Boolean.TRUE.equals(voiceEnabled)) {
+            return null;
+        }
+
+        if (languageCode == null || languageCode.isBlank()) {
+            return voicePilotBadRequest("languageCode",
+                    "Enabling voice requires a supported pilot language code.");
+        }
+
+        var normalizedLanguageCode = languageCode.trim().toLowerCase(Locale.ROOT);
+        if (!supportedLanguageCodes().contains(normalizedLanguageCode)) {
+            return voicePilotBadRequest("languageCode",
+                    "Language code '" + languageCode + "' is not supported by the voice pilot.");
+        }
+
+        return null;
+    }
+
+    private Set<String> supportedLanguageCodes() {
+        var configured = config.voicePilot().supportedLanguageCodes();
+        if (configured == null || configured.isEmpty()) {
+            return Set.of();
+        }
+
+        return configured.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(s -> !s.isBlank())
+                .map(s -> s.toLowerCase(Locale.ROOT))
+                .collect(Collectors.toSet());
+    }
+
+    private Response voicePilotBadRequest(String fieldName, String message) {
+        var response = exceptionMapper.exception("INVALID_VOICE_PILOT_CONFIGURATION", message);
+        var invalidParam = new ProblemDetailInvalidParamDTO();
+        invalidParam.setName(fieldName);
+        invalidParam.setMessage(message);
+        response.setInvalidParams(List.of(invalidParam));
+        return Response.status(Response.Status.BAD_REQUEST).entity(response).build();
     }
 
     @ServerExceptionMapper

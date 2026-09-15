@@ -95,6 +95,95 @@ class AgentRestControllerTest extends AbstractTest {
     }
 
     @Test
+    void createAgentWithVoicePilotSettingsTest() {
+        var dto = new CreateAgentRequestDTO();
+        dto.setName("agent-created-voice");
+        dto.setStatus(AgentStatusDTO.DRAFT);
+        dto.setVoiceEnabled(true);
+        dto.setLanguageCode("en");
+
+        var created = given()
+                .auth().oauth2(getKeycloakClientToken("testClient"))
+                .contentType(APPLICATION_JSON)
+                .body(dto)
+                .post()
+                .then()
+                .statusCode(CREATED.getStatusCode())
+                .extract()
+                .as(AgentDTO.class);
+
+        assertThat(created.getVoiceEnabled()).isTrue();
+        assertThat(created.getLanguageCode()).isEqualTo("en");
+    }
+
+    @Test
+    void createAgentWithVoiceEnabledWithoutLanguageCodeTest() {
+        var dto = new CreateAgentRequestDTO();
+        dto.setName("agent-invalid-voice-no-language");
+        dto.setStatus(AgentStatusDTO.DRAFT);
+        dto.setVoiceEnabled(true);
+
+        var error = given()
+                .auth().oauth2(getKeycloakClientToken("testClient"))
+                .contentType(APPLICATION_JSON)
+                .body(dto)
+                .post()
+                .then()
+                .statusCode(BAD_REQUEST.getStatusCode())
+                .extract()
+                .as(ProblemDetailResponseDTO.class);
+
+        assertThat(error.getErrorCode()).isEqualTo("INVALID_VOICE_PILOT_CONFIGURATION");
+        assertThat(error.getInvalidParams()).hasSize(1);
+        assertThat(error.getInvalidParams().get(0).getName()).isEqualTo("languageCode");
+    }
+
+    @Test
+    void createAgentWithUnsupportedVoiceLanguageCodeTest() {
+        var dto = new CreateAgentRequestDTO();
+        dto.setName("agent-invalid-voice-language");
+        dto.setStatus(AgentStatusDTO.DRAFT);
+        dto.setVoiceEnabled(true);
+        dto.setLanguageCode("de");
+
+        var error = given()
+                .auth().oauth2(getKeycloakClientToken("testClient"))
+                .contentType(APPLICATION_JSON)
+                .body(dto)
+                .post()
+                .then()
+                .statusCode(BAD_REQUEST.getStatusCode())
+                .extract()
+                .as(ProblemDetailResponseDTO.class);
+
+        assertThat(error.getErrorCode()).isEqualTo("INVALID_VOICE_PILOT_CONFIGURATION");
+        assertThat(error.getInvalidParams()).hasSize(1);
+        assertThat(error.getInvalidParams().get(0).getName()).isEqualTo("languageCode");
+    }
+
+    @Test
+    void createAgentWithVoiceDisabledKeepsLanguageCodeTest() {
+        var dto = new CreateAgentRequestDTO();
+        dto.setName("agent-voice-disabled");
+        dto.setStatus(AgentStatusDTO.DRAFT);
+        dto.setVoiceEnabled(false);
+        dto.setLanguageCode("de");
+
+        var created = given()
+                .auth().oauth2(getKeycloakClientToken("testClient"))
+                .contentType(APPLICATION_JSON)
+                .body(dto)
+                .post()
+                .then()
+                .statusCode(CREATED.getStatusCode())
+                .extract()
+                .as(AgentDTO.class);
+
+        assertThat(created.getVoiceEnabled()).isFalse();
+        assertThat(created.getLanguageCode()).isEqualTo("de");
+    }
+
+    @Test
     void findAgentBySearchCriteriaTest() {
         var criteria = new AgentSearchCriteriaDTO();
         var data = given()
@@ -146,6 +235,17 @@ class AgentRestControllerTest extends AbstractTest {
         assertThat(dto).isNotNull();
         assertThat(dto.getId()).isEqualTo("agent-11-111");
         assertThat(dto.getName()).isEqualTo("agent1");
+
+        var voiceAgent = given()
+                .auth().oauth2(getKeycloakClientToken("testClient"))
+                .contentType(APPLICATION_JSON)
+                .pathParam("id", "agent-22-222")
+                .get("/{id}")
+                .then().statusCode(OK.getStatusCode())
+                .extract().as(AgentDTO.class);
+
+        assertThat(voiceAgent.getVoiceEnabled()).isTrue();
+        assertThat(voiceAgent.getLanguageCode()).isEqualTo("en");
     }
 
     @Test
@@ -193,6 +293,8 @@ class AgentRestControllerTest extends AbstractTest {
         dto.setModificationCount(0);
         dto.setStatus(AgentStatusDTO.LIVE);
         dto.setA2aEnabled(true);
+        dto.setVoiceEnabled(true);
+        dto.setLanguageCode("en");
 
         var tool = new ToolDTO();
         tool.setId("tool-11-111");
@@ -233,6 +335,8 @@ class AgentRestControllerTest extends AbstractTest {
         assertThat(updated.getTools()).isNotNull().isNotEmpty();
         assertThat(updated.getGroups()).isNotNull().isNotEmpty();
         assertThat(updated.getModificationCount()).isNotEqualTo(dto.getModificationCount());
+        assertThat(updated.getVoiceEnabled()).isTrue();
+        assertThat(updated.getLanguageCode()).isEqualTo("en");
 
         dto.setModificationCount(0);
         given()
@@ -330,6 +434,63 @@ class AgentRestControllerTest extends AbstractTest {
     }
 
     @Test
+    void updateAgentWithVoiceEnabledWithoutLanguageCodeTest() {
+        var dto = new UpdateAgentRequestDTO();
+        dto.setModificationCount(0);
+        dto.setVoiceEnabled(true);
+
+        var error = given()
+                .auth().oauth2(getKeycloakClientToken("testClient"))
+                .contentType(APPLICATION_JSON)
+                .body(dto)
+                .pathParam("id", "agent-11-111")
+                .put("/{id}")
+                .then().statusCode(BAD_REQUEST.getStatusCode())
+                .extract().as(ProblemDetailResponseDTO.class);
+
+        assertThat(error.getErrorCode()).isEqualTo("INVALID_VOICE_PILOT_CONFIGURATION");
+    }
+
+    @Test
+    void updateAgentWithUnsupportedVoiceLanguageCodeTest() {
+        var dto = new UpdateAgentRequestDTO();
+        dto.setModificationCount(0);
+        dto.setVoiceEnabled(true);
+        dto.setLanguageCode("de");
+
+        var error = given()
+                .auth().oauth2(getKeycloakClientToken("testClient"))
+                .contentType(APPLICATION_JSON)
+                .body(dto)
+                .pathParam("id", "agent-11-111")
+                .put("/{id}")
+                .then().statusCode(BAD_REQUEST.getStatusCode())
+                .extract().as(ProblemDetailResponseDTO.class);
+
+        assertThat(error.getErrorCode()).isEqualTo("INVALID_VOICE_PILOT_CONFIGURATION");
+    }
+
+    @Test
+    void updateAgentWithVoiceDisabledKeepsLanguageCodeTest() {
+        var dto = new UpdateAgentRequestDTO();
+        dto.setModificationCount(0);
+        dto.setVoiceEnabled(false);
+        dto.setLanguageCode("de");
+
+        var updated = given()
+                .auth().oauth2(getKeycloakClientToken("testClient"))
+                .contentType(APPLICATION_JSON)
+                .body(dto)
+                .pathParam("id", "agent-11-111")
+                .put("/{id}")
+                .then().statusCode(OK.getStatusCode())
+                .extract().as(AgentDTO.class);
+
+        assertThat(updated.getVoiceEnabled()).isFalse();
+        assertThat(updated.getLanguageCode()).isEqualTo("de");
+    }
+
+    @Test
     void agentMcpToolRuleCrudTest() {
         // get rules for agent-11-111 / tool-11-111
         var list = given()
@@ -382,7 +543,7 @@ class AgentRestControllerTest extends AbstractTest {
                 .extract().as(AgentMcpToolRuleDTO.class);
 
         assertThat(created.getId()).isNotNull();
-        assertThat(created.getAllowed()).isEqualTo(ToolPermissionDTO.ALLOW);
+        assertThat(created.getAllowed()).isEqualTo(ToolPermissionDTO.ALWAYS_ALLOW);
 
         // agent not found
         given()
@@ -502,7 +663,7 @@ class AgentRestControllerTest extends AbstractTest {
                 .then().statusCode(OK.getStatusCode())
                 .extract().as(AgentMcpToolRuleDTO.class);
 
-        assertThat(updated.getAllowed()).isEqualTo(ToolPermissionDTO.ALLOW);
+        assertThat(updated.getAllowed()).isEqualTo(ToolPermissionDTO.ALWAYS_ALLOW);
 
         // update with wrong agent — rule does not belong to this agent
         given()

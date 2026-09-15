@@ -118,6 +118,16 @@ class ToolRestControllerTest extends AbstractTest {
         assertThat(dto).isNotNull();
         assertThat(dto.getId()).isEqualTo("tool-11-111");
         assertThat(dto.getType()).isEqualTo(ToolTypeDTO.MCP);
+
+        var legacyPolicyTool = given()
+                .auth().oauth2(getKeycloakClientToken("testClient"))
+                .contentType(APPLICATION_JSON)
+                .pathParam("id", "tool-22-222")
+                .get("/{id}")
+                .then().statusCode(OK.getStatusCode())
+                .extract().as(ToolDTO.class);
+
+        assertThat(legacyPolicyTool.getExecutionPolicy()).isEqualTo(ExecutionPolicyDTO.ALWAYS_ALLOW);
     }
 
     @Test
