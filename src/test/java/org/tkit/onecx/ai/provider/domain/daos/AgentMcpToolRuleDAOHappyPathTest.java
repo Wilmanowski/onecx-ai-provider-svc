@@ -36,4 +36,23 @@ class AgentMcpToolRuleDAOHappyPathTest extends AbstractTest {
             assertThat(rule.getAllowed()).isEqualTo(ToolPermission.ALWAYS_ALLOW);
         });
     }
+
+    @Test
+    void deleteByAgentId_deletesOnlyRulesOfThatAgent() {
+        dao.deleteByAgentId("agent-11-111");
+
+        assertThat(dao.findByAgentId("agent-11-111")).isEmpty();
+        assertThat(dao.findByAgentId("agent-22-222")).singleElement()
+                .satisfies(rule -> assertThat(rule.getToolName()).isEqualTo("globalRead"));
+    }
+
+    @Test
+    void deleteByAgentAndToolId_deletesRulesMatchingAgentAndTool() {
+        dao.deleteByAgentAndToolId("agent-11-111", "tool-11-111");
+
+        assertThat(dao.findByAgentAndToolId("agent-11-111", "tool-11-111")).isEmpty();
+        assertThat(dao.findByAgentId("agent-11-111")).isEmpty();
+        assertThat(dao.findByAgentId("agent-22-222")).singleElement()
+                .satisfies(rule -> assertThat(rule.getToolName()).isEqualTo("globalRead"));
+    }
 }

@@ -346,6 +346,56 @@ class ToolRestControllerTest extends AbstractTest {
     }
 
     @Test
+    void getDiscoveredTools_duplicateRuleNames_mergeFunctionKeepsFirstRule() {
+        var ruleDto = new CreateAgentMcpToolRuleRequestDTO();
+        ruleDto.setToolName("dupRule");
+        ruleDto.setToolDescription("Duplicate rule");
+        ruleDto.setAllowed(ToolPermissionDTO.ALLOW);
+
+        given()
+                .auth().oauth2(getKeycloakClientToken("testClient"))
+                .contentType(APPLICATION_JSON)
+                .body(ruleDto)
+                .basePath("/internal/agents")
+                .pathParam("agentId", "agent-11-111")
+                .pathParam("toolId", "tool-11-111")
+                .post("/{agentId}/tools/{toolId}/mcp-tool-rules")
+                .then().statusCode(CREATED.getStatusCode());
+
+        given()
+                .auth().oauth2(getKeycloakClientToken("testClient"))
+                .contentType(APPLICATION_JSON)
+                .body(ruleDto)
+                .basePath("/internal/agents")
+                .pathParam("agentId", "agent-11-111")
+                .pathParam("toolId", "tool-11-111")
+                .post("/{agentId}/tools/{toolId}/mcp-tool-rules")
+                .then().statusCode(CREATED.getStatusCode());
+
+        mockServerClient.when(request().withPath("/ai/internal/runtime/tools/discover").withMethod(HttpMethod.POST))
+                .withId(MOCK_ID)
+                .respond(httpRequest -> response().withStatusCode(OK.getStatusCode())
+                        .withContentType(MediaType.APPLICATION_JSON)
+                        .withBody("{\"tools\":[{\"name\":\"dupRule\",\"description\":\"Duplicate rule\"}]}"));
+
+        var result = given()
+                .auth().oauth2(getKeycloakClientToken("testClient"))
+                .contentType(APPLICATION_JSON)
+                .pathParam("toolId", "tool-11-111")
+                .queryParam("agentId", "agent-11-111")
+                .post("/{toolId}/discovered-tools")
+                .then().statusCode(OK.getStatusCode())
+                .extract().as(DiscoveredToolInfoListDTO.class);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getTools()).hasSize(3);
+        var dup = result.getTools().stream()
+                .filter(t -> "dupRule".equals(t.getName())).findFirst().orElseThrow();
+        assertThat(dup.getExistingRule()).isNotNull();
+        assertThat(dup.getOrphaned()).isFalse();
+    }
+
+    @Test
     void getDiscoveredTools_nullBody_returnsEmptyList() {
         // covers line 115 branch: body == null → else → List.of()
         // JSON literal "null" deserializes to null (empty body would throw)

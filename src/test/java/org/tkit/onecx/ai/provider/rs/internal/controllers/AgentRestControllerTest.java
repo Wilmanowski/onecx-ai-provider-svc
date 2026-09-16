@@ -144,7 +144,7 @@ class AgentRestControllerTest extends AbstractTest {
         dto.setName("agent-invalid-voice-language");
         dto.setStatus(AgentStatusDTO.DRAFT);
         dto.setVoiceEnabled(true);
-        dto.setLanguageCode("de");
+        dto.setLanguageCode("fr");
 
         var error = given()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
@@ -181,6 +181,28 @@ class AgentRestControllerTest extends AbstractTest {
 
         assertThat(created.getVoiceEnabled()).isFalse();
         assertThat(created.getLanguageCode()).isEqualTo("de");
+    }
+
+    @Test
+    void createAgentWithBlankLanguageCodeIsNormalizedToNullTest() {
+        var dto = new CreateAgentRequestDTO();
+        dto.setName("agent-blank-language");
+        dto.setStatus(AgentStatusDTO.DRAFT);
+        dto.setVoiceEnabled(false);
+        dto.setLanguageCode("   ");
+
+        var created = given()
+                .auth().oauth2(getKeycloakClientToken("testClient"))
+                .contentType(APPLICATION_JSON)
+                .body(dto)
+                .post()
+                .then()
+                .statusCode(CREATED.getStatusCode())
+                .extract()
+                .as(AgentDTO.class);
+
+        assertThat(created.getVoiceEnabled()).isFalse();
+        assertThat(created.getLanguageCode()).isNull();
     }
 
     @Test
@@ -456,7 +478,7 @@ class AgentRestControllerTest extends AbstractTest {
         var dto = new UpdateAgentRequestDTO();
         dto.setModificationCount(0);
         dto.setVoiceEnabled(true);
-        dto.setLanguageCode("de");
+        dto.setLanguageCode("fr");
 
         var error = given()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
