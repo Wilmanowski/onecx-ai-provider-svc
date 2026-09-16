@@ -45,7 +45,7 @@ public class Agent extends TraceableEntity {
     @Column(name = "VOICE_ENABLED")
     private Boolean voiceEnabled;
 
-    @Column(name = "LANGUAGE_CODE")
+    @Column(name = "LANGUAGE_CODE", length = 32)
     private String languageCode;
 
     @Column(name = "STATUS")
