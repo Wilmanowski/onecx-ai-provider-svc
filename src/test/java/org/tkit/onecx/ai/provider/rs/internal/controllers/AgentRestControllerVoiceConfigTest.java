@@ -94,7 +94,9 @@ class AgentRestControllerVoiceConfigTest {
     @Test
     @SuppressWarnings("java:S3011")
     void normalizeLanguageCode_withNullAgent_returnsSilently() throws Exception {
-        normalizeLanguageCode.invoke(controller, (Object) null);
+        var result = normalizeLanguageCode.invoke(controller, (Object) null);
+
+        assertThat(result).isNull();
     }
 
     @Test

@@ -150,15 +150,13 @@ public class AgentRestController implements AgentInternalApi {
 
         // Resolve tools
         var toolsToAdd = new HashSet<Tool>();
-        if (!updateAgentRequestDTO.getTools().isEmpty()) {
-            updateAgentRequestDTO.getTools().forEach(tool -> {
-                var existing = toolDAO.findById(tool.getId());
-                if (existing == null) {
-                    existing = toolDAO.create(toolMapper.map(tool));
-                }
-                toolsToAdd.add(existing);
-            });
-        }
+        updateAgentRequestDTO.getTools().forEach(tool -> {
+            var existing = toolDAO.findById(tool.getId());
+            if (existing == null) {
+                existing = toolDAO.create(toolMapper.map(tool));
+            }
+            toolsToAdd.add(existing);
+        });
 
         // Resolve model
         Model model = null;
