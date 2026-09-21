@@ -1,0 +1,62 @@
+== Runtime contract pinning
+
+The provider dispatch and provider-health client (`gen.org.tkit.onecx.ai.provider.runtime.client`)
+is generated from the `onecx-ai-provider-runtime` OpenAPI contract. The contract is consumed from
+a **released, immutable runtime version** — never from a moving branch — so that contract
+incompatibilities are detected at build time (client generation and the dispatch/provider-health
+tests fail the build) instead of surfacing at runtime.
+
+[cols="2",options="header",]
+|===
+| Attribute | Value
+
+| Source
+| `onecx-ai-provider-runtime` GitHub Release asset
+
+| Asset name
+| `onecx-ai-provider-runtime-<tag>-runtime-contract.yaml`
+
+| Pinned by
+| Maven property `onecx-ai-provider-runtime.contract-version` in `pom.xml`
+
+| Downloaded to
+| `target/tmp/openapi/onecx-ai-runtime.yaml` (build phase `generate-resources`)
+
+| Consumed by
+| Quarkus OpenAPI Generator extension (see the `quarkus.openapi-generator.codegen.spec.onecx_ai_runtime_yaml.*`
+  properties)
+
+| Version identity
+| the runtime release **tag**; immutable once released
+|===
+
+The release asset is the documented and preferred consumption path; the same contract is also
+bundled into every runtime release image at `/etc/onecx/openapi-runtime.yaml` and can be read out
+of a pinned image for debugging a running deployment:
+
+[source,bash]
+----
+docker run --rm --entrypoint cat ghcr.io/onecx/onecx-ai-provider-runtime:<tag> \
+  /etc/onecx/openapi-runtime.yaml > contract.yaml
+----
+
+=== Upgrading the contract
+
+1. Identify the target `onecx-ai-provider-runtime` release tag and verify its contract:
+  `onecx-ai-provider-runtime-<tag>-runtime-contract.yaml` is attached to the matching GitHub
+  release.
+2. Update the `onecx-ai-provider-runtime.contract-version` property in `pom.xml` to the target tag.
+3. Build the service. The runtime client is regenerated from the pinned contract and the
+   Quarkus/JUnit dispatch and provider-health tests verify compatibility; a breaking contract
+   change fails the build here rather than at runtime.
+4. Release the service version that embeds the new contract pin.
+
+=== Rolling back
+
+Rollback is a one-line change: set `onecx-ai-provider-runtime.contract-version` back to the
+previously working release tag and rebuild. Because release tags are immutable, the previous
+contract asset always resolves to the same bytes, so the rollback is deterministic.
+
+As long as the service is not redeployed against a runtime that no longer satisfies the pinned
+contract's expectations, no data migration or runtime change is required — the pin only affects
+the generated client, which is embedded in the service build.

@@ -14,6 +14,9 @@
     <name>OneCX AI Provider Backend Service</name>
     <version>999-SNAPSHOT</version>
     <packaging>quarkus</packaging>
+    <properties>
+        <onecx-ai-provider-runtime.contract-version>0.1.0</onecx-ai-provider-runtime.contract-version>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>org.tkit.onecx.quarkus</groupId>
@@ -236,14 +239,14 @@
             <artifactId>download-maven-plugin</artifactId>
             <executions>
             <execution>
-                <id>onecx-ai-runtime</id>
+                <id>onecx-ai-runtime-contract</id>
                 <phase>generate-resources</phase>
                 <goals>
                     <goal>wget</goal>
                 </goals>
                 <configuration>
                     <url>
-                        https://raw.githubusercontent.com/onecx/onecx-ai-provider-runtime/refs/heads/main/src/main/openapi/openapi-runtime.yaml
+                        https://github.com/onecx/onecx-ai-provider-runtime/releases/download/${onecx-ai-provider-runtime.contract-version}/onecx-ai-provider-runtime-${onecx-ai-provider-runtime.contract-version}-runtime-contract.yaml
                     </url>
                     <outputDirectory>target/tmp/openapi</outputDirectory>
                     <outputFileName>onecx-ai-runtime.yaml</outputFileName>
