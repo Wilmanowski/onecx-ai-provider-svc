@@ -456,6 +456,29 @@ class AgentRestControllerTest extends AbstractTest {
     }
 
     @Test
+    void updateAgentWithNullToolsAndGroupsTest() {
+        var body = """
+                {
+                  "modificationCount": 0,
+                  "tools": null,
+                  "groups": null
+                }
+                """;
+
+        var updated = given()
+                .auth().oauth2(getKeycloakClientToken("testClient"))
+                .contentType(APPLICATION_JSON)
+                .body(body)
+                .pathParam("id", "agent-11-111")
+                .put("/{id}")
+                .then().statusCode(OK.getStatusCode())
+                .extract().as(AgentDTO.class);
+
+        assertThat(updated.getTools()).isNotNull().isEmpty();
+        assertThat(updated.getGroups()).isNotNull().isEmpty();
+    }
+
+    @Test
     void updateAgentWithVoiceEnabledWithoutLanguageCodeTest() {
         var dto = new UpdateAgentRequestDTO();
         dto.setModificationCount(0);
