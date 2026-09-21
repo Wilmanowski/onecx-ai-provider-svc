@@ -49,6 +49,7 @@ import gen.org.tkit.onecx.ai.provider.rs.internal.model.CreateAgentMcpToolRuleRe
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.CreateAgentRequestDTO;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.ProblemDetailInvalidParamDTO;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.ProblemDetailResponseDTO;
+import gen.org.tkit.onecx.ai.provider.rs.internal.model.ToolDTO;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.UpdateAgentMcpToolRuleRequestDTO;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.UpdateAgentRequestDTO;
 import lombok.extern.slf4j.Slf4j;
@@ -149,14 +150,7 @@ public class AgentRestController implements AgentInternalApi {
         }
 
         // Resolve tools
-        var toolsToAdd = new HashSet<Tool>();
-        updateAgentRequestDTO.getTools().forEach(tool -> {
-            var existing = toolDAO.findById(tool.getId());
-            if (existing == null) {
-                existing = toolDAO.create(toolMapper.map(tool));
-            }
-            toolsToAdd.add(existing);
-        });
+        var toolsToAdd = resolveTools(updateAgentRequestDTO.getTools());
 
         // Resolve model
         Model model = null;
@@ -180,7 +174,7 @@ public class AgentRestController implements AgentInternalApi {
 
         // Resolve groups
         var groupsToAdd = new HashSet<AgentGroup>();
-        if (!updateAgentRequestDTO.getGroups().isEmpty()) {
+        if (updateAgentRequestDTO.getGroups() != null && !updateAgentRequestDTO.getGroups().isEmpty()) {
             updateAgentRequestDTO.getGroups().forEach(groupDto -> {
                 var existing = agentGroupDAO.findById(groupDto.getId());
                 if (existing == null) {
@@ -253,6 +247,21 @@ public class AgentRestController implements AgentInternalApi {
         }
         agentMcpToolRuleDAO.deleteQueryById(ruleId);
         return Response.status(Response.Status.NO_CONTENT).build();
+    }
+
+    private HashSet<Tool> resolveTools(List<ToolDTO> tools) {
+        var toolsToAdd = new HashSet<Tool>();
+        if (tools == null) {
+            return toolsToAdd;
+        }
+        tools.forEach(tool -> {
+            var existing = toolDAO.findById(tool.getId());
+            if (existing == null) {
+                existing = toolDAO.create(toolMapper.map(tool));
+            }
+            toolsToAdd.add(existing);
+        });
+        return toolsToAdd;
     }
 
     private boolean agentRuleBelongsToAgentAndTool(AgentMcpToolRule rule, String agentId, String toolId) {
