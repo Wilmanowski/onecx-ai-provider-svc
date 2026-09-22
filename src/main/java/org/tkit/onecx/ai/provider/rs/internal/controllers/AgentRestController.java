@@ -279,7 +279,7 @@ public class AgentRestController implements AgentInternalApi {
             return;
         }
 
-        var normalized = agent.getLanguageCode().trim();
+        var normalized = agent.getLanguageCode().trim().toLowerCase(Locale.ROOT);
         agent.setLanguageCode(normalized.isEmpty() ? null : normalized);
     }
 
