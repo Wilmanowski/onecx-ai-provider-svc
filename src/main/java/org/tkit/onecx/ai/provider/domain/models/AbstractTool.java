@@ -1,10 +1,12 @@
 package org.tkit.onecx.ai.provider.domain.models;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.MappedSuperclass;
 
+import org.tkit.onecx.ai.provider.domain.models.converters.ExecutionPolicyConverter;
 import org.tkit.onecx.ai.provider.domain.models.enums.AuthMode;
 import org.tkit.onecx.ai.provider.domain.models.enums.ExecutionPolicy;
 import org.tkit.onecx.ai.provider.domain.models.enums.ToolType;
@@ -35,7 +37,7 @@ public abstract class AbstractTool extends TraceableEntity {
     private String apiKey;
 
     @Column(name = "EXECUTION_POLICY")
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = ExecutionPolicyConverter.class)
     private ExecutionPolicy executionPolicy;
 
     @Column(name = "AUTH_MODE")

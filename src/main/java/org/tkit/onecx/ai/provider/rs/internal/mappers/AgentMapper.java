@@ -60,6 +60,8 @@ public interface AgentMapper {
     @Mapping(target = "description", source = "updateDTO.description")
     @Mapping(target = "additionalPrompt", source = "updateDTO.additionalPrompt")
     @Mapping(target = "a2aEnabled", source = "updateDTO.a2aEnabled")
+    @Mapping(target = "voiceEnabled", source = "updateDTO.voiceEnabled")
+    @Mapping(target = "languageCode", source = "updateDTO.languageCode")
     @Mapping(target = "filter", source = "updateDTO.filter")
     @Mapping(target = "model", source = "model")
     @Mapping(target = "scaffold", source = "scaffold")

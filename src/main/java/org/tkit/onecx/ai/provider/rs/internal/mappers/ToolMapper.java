@@ -7,6 +7,7 @@ import org.tkit.onecx.ai.provider.common.services.DangerClassificationService;
 import org.tkit.onecx.ai.provider.domain.criteria.ToolSearchCriteria;
 import org.tkit.onecx.ai.provider.domain.models.AbstractTool;
 import org.tkit.onecx.ai.provider.domain.models.Tool;
+import org.tkit.onecx.ai.provider.domain.models.enums.ExecutionPolicy;
 import org.tkit.quarkus.jpa.daos.PageResult;
 import org.tkit.quarkus.rs.mappers.OffsetDateTimeMapper;
 
@@ -14,6 +15,7 @@ import gen.org.tkit.onecx.ai.provider.rs.internal.model.CreateToolRequestDTO;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.DangerLevelDTO;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.DiscoveredToolAnnotationsDTO;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.DiscoveredToolInfoDTO;
+import gen.org.tkit.onecx.ai.provider.rs.internal.model.ExecutionPolicyDTO;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.ToolDTO;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.ToolPageResultDTO;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.ToolSearchCriteriaDTO;
@@ -81,5 +83,21 @@ public interface ToolMapper {
                 annotations != null ? annotations.getOpenWorldHint() : null);
         info.setAutoDangerLevel(DangerLevelDTO.fromValue(auto.name()));
         return info;
+    }
+
+    default ExecutionPolicy mapExecutionPolicy(ExecutionPolicyDTO executionPolicyDTO) {
+        if (executionPolicyDTO == null) {
+            return ExecutionPolicy.DEFAULT;
+        }
+        return ExecutionPolicy.fromValueOrDefault(executionPolicyDTO.toString()).toCanonical();
+    }
+
+    default ExecutionPolicyDTO mapExecutionPolicy(ExecutionPolicy executionPolicy) {
+        var canonical = (executionPolicy == null ? ExecutionPolicy.DEFAULT : executionPolicy).toCanonical();
+        try {
+            return ExecutionPolicyDTO.fromValue(canonical.name());
+        } catch (IllegalArgumentException ignored) {
+            return ExecutionPolicyDTO.ALWAYS_ASK;
+        }
     }
 }

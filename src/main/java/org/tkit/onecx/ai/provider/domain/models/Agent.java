@@ -42,6 +42,12 @@ public class Agent extends TraceableEntity {
     @Column(name = "A2A_ENABLED")
     private Boolean a2aEnabled;
 
+    @Column(name = "VOICE_ENABLED")
+    private Boolean voiceEnabled;
+
+    @Column(name = "LANGUAGE_CODE", length = 32)
+    private String languageCode;
+
     @Column(name = "STATUS")
     @Enumerated(EnumType.STRING)
     private AgentStatus status;

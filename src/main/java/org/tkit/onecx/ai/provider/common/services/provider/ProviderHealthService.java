@@ -1,7 +1,5 @@
 package org.tkit.onecx.ai.provider.common.services.provider;
 
-import static gen.org.tkit.onecx.ai.provider.rs.internal.model.ProviderHealthStatusDTO.StatusEnum.HEALTHY;
-
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
@@ -32,8 +30,10 @@ public class ProviderHealthService {
         if (provider == null || provider.getType() == null) {
             return UNHEALTHY;
         }
-        try (Response response = runtimeProviderHealthClient
-                .getProviderHealthStatus(new ProviderHealthRequest().provider(runtimeSnapshotMapper.mapProvider(provider)))) {
+        Response response = null;
+        try {
+            response = runtimeProviderHealthClient
+                    .getProviderHealthStatus(new ProviderHealthRequest().provider(runtimeSnapshotMapper.mapProvider(provider)));
             if (response.getStatus() != Response.Status.OK.getStatusCode()) {
                 log.warn("Runtime provider health check failed with HTTP status {}", response.getStatus());
                 return UNHEALTHY;
@@ -44,6 +44,19 @@ public class ProviderHealthService {
             log.warn("Error invoking runtime provider health API: {}", ex.getMessage());
             log.debug("Runtime provider health API failure details", ex);
             return UNHEALTHY;
+        } finally {
+            closeQuietly(response);
+        }
+    }
+
+    private static void closeQuietly(Response response) {
+        if (response != null) {
+            try {
+                response.close();
+            } catch (Exception closeEx) {
+                log.warn("Error closing runtime provider health response: {}", closeEx.getMessage());
+                log.debug("Runtime provider health response close failure details", closeEx);
+            }
         }
     }
 }

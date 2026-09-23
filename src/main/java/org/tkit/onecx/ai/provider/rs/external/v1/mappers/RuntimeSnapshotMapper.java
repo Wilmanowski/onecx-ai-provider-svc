@@ -22,6 +22,8 @@ import org.tkit.onecx.ai.provider.domain.models.Provider;
 import org.tkit.onecx.ai.provider.domain.models.Scaffold;
 import org.tkit.onecx.ai.provider.domain.models.Skill;
 import org.tkit.onecx.ai.provider.domain.models.Tool;
+import org.tkit.onecx.ai.provider.domain.models.enums.ExecutionPolicy;
+import org.tkit.onecx.ai.provider.domain.models.enums.ToolPermission;
 import org.tkit.quarkus.rs.mappers.OffsetDateTimeMapper;
 
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.ChatMessageDTOV1;
@@ -289,9 +291,7 @@ public abstract class RuntimeSnapshotMapper {
         snapshot.setUrl(tool.getUrl());
         snapshot.setApiKey(tool.getApiKey());
         snapshot.setAuthMode(tool.getAuthMode() != null ? tool.getAuthMode().name() : null);
-        snapshot.setExecutionPolicy(tool.getExecutionPolicy() != null
-                ? ToolSnapshot.ExecutionPolicyEnum.fromString(tool.getExecutionPolicy().name())
-                : null);
+        snapshot.setExecutionPolicy(mapExecutionPolicy(tool.getExecutionPolicy()));
         snapshot.setToolRules(mapRules(rules));
         return snapshot;
     }
@@ -303,10 +303,27 @@ public abstract class RuntimeSnapshotMapper {
         return rules.stream().map(rule -> {
             var snapshot = new ToolRuleSnapshot();
             snapshot.setToolName(rule.getToolName());
-            snapshot.setAllowed(rule.getAllowed() != null
-                    ? ToolRuleSnapshot.AllowedEnum.fromString(rule.getAllowed().name())
-                    : null);
+            snapshot.setAllowed(mapToolPermission(rule.getAllowed()));
             return snapshot;
         }).toList();
+    }
+
+    private ToolSnapshot.ExecutionPolicyEnum mapExecutionPolicy(ExecutionPolicy policy) {
+        var canonical = (policy == null ? ExecutionPolicy.DEFAULT : policy).toCanonical();
+        if (canonical == ExecutionPolicy.ALWAYS_ALLOW) {
+            return ToolSnapshot.ExecutionPolicyEnum.NEVER_ASK;
+        }
+        return ToolSnapshot.ExecutionPolicyEnum.ALWAYS_ASK;
+    }
+
+    private ToolRuleSnapshot.AllowedEnum mapToolPermission(ToolPermission permission) {
+        var canonical = (permission == null ? ToolPermission.DEFAULT : permission).toCanonical();
+        if (canonical == ToolPermission.ALWAYS_ALLOW) {
+            return ToolRuleSnapshot.AllowedEnum.ALLOW;
+        }
+        if (canonical == ToolPermission.DENY) {
+            return ToolRuleSnapshot.AllowedEnum.DENY;
+        }
+        return ToolRuleSnapshot.AllowedEnum.ALWAYS_ASK;
     }
 }

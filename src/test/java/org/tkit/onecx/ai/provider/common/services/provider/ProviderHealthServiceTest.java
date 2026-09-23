@@ -4,6 +4,8 @@ import static jakarta.ws.rs.core.Response.Status.OK;
 import static jakarta.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import jakarta.inject.Inject;
@@ -31,7 +33,7 @@ class ProviderHealthServiceTest extends AbstractTest {
     @RestClient
     RuntimeInternalApi runtimeProviderHealthClient;
 
-    @Inject
+    @InjectMock
     RuntimeSnapshotMapper runtimeSnapshotMapper;
 
     @Test
@@ -67,6 +69,77 @@ class ProviderHealthServiceTest extends AbstractTest {
         var provider = new Provider();
         provider.setId("p1");
         provider.setType(ProviderType.OPENAI);
+
+        assertThat(providerHealthService.getProviderHealthStatus(provider)).isEqualTo("UNHEALTHY");
+    }
+
+    @Test
+    void getProviderHealthStatus_returnsUnhealthy_whenMapperThrows() {
+        when(runtimeSnapshotMapper.mapProvider(any(Provider.class)))
+                .thenThrow(new RuntimeException("mapping failed"));
+
+        var provider = new Provider();
+        provider.setId("p1");
+        provider.setType(ProviderType.OPENAI);
+
+        assertThat(providerHealthService.getProviderHealthStatus(provider)).isEqualTo("UNHEALTHY");
+    }
+
+    @Test
+    void getProviderHealthStatus_returnsHealthy_whenResponseCloseThrows() {
+        var response = mock(Response.class);
+        when(response.getStatus()).thenReturn(OK.getStatusCode());
+        doThrow(new RuntimeException("close failed")).when(response).close();
+
+        when(runtimeProviderHealthClient.getProviderHealthStatus(any(ProviderHealthRequest.class)))
+                .thenReturn(response);
+
+        var provider = new Provider();
+        provider.setId("p1");
+        provider.setType(ProviderType.OLLAMA);
+
+        assertThat(providerHealthService.getProviderHealthStatus(provider)).isEqualTo("HEALTHY");
+    }
+
+    @Test
+    void getProviderHealthStatus_returnsUnhealthy_whenRuntimeReturnsNull() {
+        when(runtimeProviderHealthClient.getProviderHealthStatus(any(ProviderHealthRequest.class)))
+                .thenReturn(null);
+
+        var provider = new Provider();
+        provider.setId("p1");
+        provider.setType(ProviderType.OLLAMA);
+
+        assertThat(providerHealthService.getProviderHealthStatus(provider)).isEqualTo("UNHEALTHY");
+    }
+
+    @Test
+    void getProviderHealthStatus_returnsUnhealthy_whenStatusThrows() {
+        var response = mock(Response.class);
+        when(response.getStatus()).thenThrow(new RuntimeException("status failed"));
+
+        when(runtimeProviderHealthClient.getProviderHealthStatus(any(ProviderHealthRequest.class)))
+                .thenReturn(response);
+
+        var provider = new Provider();
+        provider.setId("p1");
+        provider.setType(ProviderType.OLLAMA);
+
+        assertThat(providerHealthService.getProviderHealthStatus(provider)).isEqualTo("UNHEALTHY");
+    }
+
+    @Test
+    void getProviderHealthStatus_returnsUnhealthy_whenNonOkCloseThrows() {
+        var response = mock(Response.class);
+        when(response.getStatus()).thenReturn(SERVICE_UNAVAILABLE.getStatusCode());
+        doThrow(new RuntimeException("close failed")).when(response).close();
+
+        when(runtimeProviderHealthClient.getProviderHealthStatus(any(ProviderHealthRequest.class)))
+                .thenReturn(response);
+
+        var provider = new Provider();
+        provider.setId("p1");
+        provider.setType(ProviderType.OLLAMA);
 
         assertThat(providerHealthService.getProviderHealthStatus(provider)).isEqualTo("UNHEALTHY");
     }

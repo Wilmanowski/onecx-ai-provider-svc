@@ -1,15 +1,15 @@
 package org.tkit.onecx.ai.provider.domain.models;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 import org.hibernate.annotations.TenantId;
+import org.tkit.onecx.ai.provider.domain.models.converters.ToolPermissionConverter;
 import org.tkit.onecx.ai.provider.domain.models.enums.ToolPermission;
 import org.tkit.quarkus.jpa.models.TraceableEntity;
 
@@ -50,6 +50,6 @@ public class AgentMcpToolRule extends TraceableEntity {
     private String toolDescription;
 
     @Column(name = "ALLOWED", nullable = false)
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = ToolPermissionConverter.class)
     private ToolPermission allowed;
 }

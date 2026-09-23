@@ -24,6 +24,7 @@ quarkus.hibernate-orm.multitenant=DISCRIMINATOR
 quarkus.hibernate-orm.jdbc.timezone=UTC
 quarkus.hibernate-orm.metrics.enabled=true
 onecx.ai.provider.runtime.url=http://onecx-ai-provider-runtime:8080
+onecx.ai.provider.voice-pilot.supported-language-codes=en,de
 quarkus.liquibase.migrate-at-start=true
 quarkus.liquibase.validate-on-migrate=true
 %prod.quarkus.datasource.jdbc.url=${DB_URL:jdbc:postgresql://postgresdb:5432/onecx-ai-provider?sslmode=disable}
