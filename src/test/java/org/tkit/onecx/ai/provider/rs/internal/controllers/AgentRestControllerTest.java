@@ -8,7 +8,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 
+import jakarta.inject.Inject;
+
 import org.junit.jupiter.api.Test;
+import org.tkit.onecx.ai.provider.domain.daos.AgentGroupDAO;
+import org.tkit.onecx.ai.provider.domain.daos.ModelDAO;
+import org.tkit.onecx.ai.provider.domain.daos.ScaffoldDAO;
+import org.tkit.onecx.ai.provider.domain.daos.ToolDAO;
 import org.tkit.onecx.ai.provider.test.AbstractTest;
 import org.tkit.quarkus.security.test.GenerateKeycloakClient;
 import org.tkit.quarkus.test.WithDBData;
@@ -22,6 +28,18 @@ import io.quarkus.test.junit.QuarkusTest;
 @WithDBData(value = "data/testdata-internal.xml", deleteBeforeInsert = true, deleteAfterTest = true, rinseAndRepeat = true)
 @GenerateKeycloakClient(clientName = "testClient", scopes = { "ocx-ai:all", "ocx-ai:read", "ocx-ai:write", "ocx-ai:delete" })
 class AgentRestControllerTest extends AbstractTest {
+
+    @Inject
+    ToolDAO toolDAO;
+
+    @Inject
+    ModelDAO modelDAO;
+
+    @Inject
+    ScaffoldDAO scaffoldDAO;
+
+    @Inject
+    AgentGroupDAO agentGroupDAO;
 
     @Test
     void createAgentTest() {
@@ -513,6 +531,32 @@ class AgentRestControllerTest extends AbstractTest {
                 .extract().as(ProblemDetailResponseDTO.class);
 
         assertThat(error.getErrorCode()).isEqualTo("INVALID_VOICE_PILOT_CONFIGURATION");
+    }
+
+    @Test
+    void updateAgentRejectedDueToInvalidVoiceSettingsDoesNotPersistReferencedEntitiesTest() {
+        var dto = new UpdateAgentRequestDTO();
+        dto.setModificationCount(0);
+        dto.setVoiceEnabled(true);
+        dto.setTools(List.of(new ToolDTO().id("tool-orphan")));
+        dto.setModel(new ModelDTO().id("model-orphan"));
+        dto.setScaffold(new ScaffoldDTO().id("scaffold-orphan"));
+        dto.setGroups(List.of(new AgentGroupDTO().id("group-orphan")));
+
+        var error = given()
+                .auth().oauth2(getKeycloakClientToken("testClient"))
+                .contentType(APPLICATION_JSON)
+                .body(dto)
+                .pathParam("id", "agent-11-111")
+                .put("/{id}")
+                .then().statusCode(BAD_REQUEST.getStatusCode())
+                .extract().as(ProblemDetailResponseDTO.class);
+
+        assertThat(error.getErrorCode()).isEqualTo("INVALID_VOICE_PILOT_CONFIGURATION");
+        assertThat(toolDAO.findById("tool-orphan")).isNull();
+        assertThat(modelDAO.findById("model-orphan")).isNull();
+        assertThat(scaffoldDAO.findById("scaffold-orphan")).isNull();
+        assertThat(agentGroupDAO.findById("group-orphan")).isNull();
     }
 
     @Test

@@ -149,6 +149,12 @@ public class AgentRestController implements AgentInternalApi {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
+        var validationError = validateVoicePilot(updateAgentRequestDTO.getVoiceEnabled(),
+                normalizeLanguageCode(updateAgentRequestDTO.getLanguageCode()));
+        if (validationError != null) {
+            return validationError;
+        }
+
         // Resolve tools
         var toolsToAdd = resolveTools(updateAgentRequestDTO.getTools());
 
@@ -186,10 +192,6 @@ public class AgentRestController implements AgentInternalApi {
 
         mapper.mapUpdate(item, updateAgentRequestDTO, toolsToAdd, model, scaffold, groupsToAdd);
         normalizeLanguageCode(item);
-        var validationError = validateVoicePilot(item.getVoiceEnabled(), item.getLanguageCode());
-        if (validationError != null) {
-            return validationError;
-        }
 
         item = dao.update(item);
         return Response.status(Response.Status.OK).entity(mapper.map(item)).build();
@@ -274,13 +276,20 @@ public class AgentRestController implements AgentInternalApi {
         return rule.getGlobalTool() != null && toolId.equals(rule.getGlobalTool().getId());
     }
 
-    private void normalizeLanguageCode(Agent agent) {
-        if (agent == null || agent.getLanguageCode() == null) {
-            return;
+    private String normalizeLanguageCode(String languageCode) {
+        if (languageCode == null) {
+            return null;
         }
 
-        var normalized = agent.getLanguageCode().trim().toLowerCase(Locale.ROOT);
-        agent.setLanguageCode(normalized.isEmpty() ? null : normalized);
+        var normalized = languageCode.trim().toLowerCase(Locale.ROOT);
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private void normalizeLanguageCode(Agent agent) {
+        if (agent == null) {
+            return;
+        }
+        agent.setLanguageCode(normalizeLanguageCode(agent.getLanguageCode()));
     }
 
     private Response validateVoicePilot(Boolean voiceEnabled, String languageCode) {
