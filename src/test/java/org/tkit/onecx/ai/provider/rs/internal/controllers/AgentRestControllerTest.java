@@ -8,13 +8,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 
-import jakarta.inject.Inject;
-
 import org.junit.jupiter.api.Test;
-import org.tkit.onecx.ai.provider.domain.daos.AgentGroupDAO;
-import org.tkit.onecx.ai.provider.domain.daos.ModelDAO;
-import org.tkit.onecx.ai.provider.domain.daos.ScaffoldDAO;
-import org.tkit.onecx.ai.provider.domain.daos.ToolDAO;
 import org.tkit.onecx.ai.provider.test.AbstractTest;
 import org.tkit.quarkus.security.test.GenerateKeycloakClient;
 import org.tkit.quarkus.test.WithDBData;
@@ -28,18 +22,6 @@ import io.quarkus.test.junit.QuarkusTest;
 @WithDBData(value = "data/testdata-internal.xml", deleteBeforeInsert = true, deleteAfterTest = true, rinseAndRepeat = true)
 @GenerateKeycloakClient(clientName = "testClient", scopes = { "ocx-ai:all", "ocx-ai:read", "ocx-ai:write", "ocx-ai:delete" })
 class AgentRestControllerTest extends AbstractTest {
-
-    @Inject
-    ToolDAO toolDAO;
-
-    @Inject
-    ModelDAO modelDAO;
-
-    @Inject
-    ScaffoldDAO scaffoldDAO;
-
-    @Inject
-    AgentGroupDAO agentGroupDAO;
 
     @Test
     void createAgentTest() {
@@ -553,10 +535,19 @@ class AgentRestControllerTest extends AbstractTest {
                 .extract().as(ProblemDetailResponseDTO.class);
 
         assertThat(error.getErrorCode()).isEqualTo("INVALID_VOICE_PILOT_CONFIGURATION");
-        assertThat(toolDAO.findById("tool-orphan")).isNull();
-        assertThat(modelDAO.findById("model-orphan")).isNull();
-        assertThat(scaffoldDAO.findById("scaffold-orphan")).isNull();
-        assertThat(agentGroupDAO.findById("group-orphan")).isNull();
+        assertEntityDoesNotExist("/internal/tools", "tool-orphan");
+        assertEntityDoesNotExist("/internal/models", "model-orphan");
+        assertEntityDoesNotExist("/internal/scaffolds", "scaffold-orphan");
+        assertEntityDoesNotExist("/internal/agentGroups", "group-orphan");
+    }
+
+    private void assertEntityDoesNotExist(String basePath, String id) {
+        given()
+                .auth().oauth2(getKeycloakClientToken("testClient"))
+                .basePath(basePath)
+                .pathParam("id", id)
+                .get("/{id}")
+                .then().statusCode(NOT_FOUND.getStatusCode());
     }
 
     @Test
