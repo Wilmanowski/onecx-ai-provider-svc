@@ -109,7 +109,8 @@ public class AgentRestController implements AgentInternalApi {
 
     @Override
     public Response createAgent(CreateAgentRequestDTO createAgentRequestDTO) {
-        var agent = mapper.mapCreate(createAgentRequestDTO);
+        var agent = Objects.requireNonNull(mapper.mapCreate(createAgentRequestDTO),
+                "agent must not be null");
         normalizeLanguageCode(agent);
         var validationError = validateVoicePilot(agent.getVoiceEnabled(), agent.getLanguageCode());
         if (validationError != null) {
