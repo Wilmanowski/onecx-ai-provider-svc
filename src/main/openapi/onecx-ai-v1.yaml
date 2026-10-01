@@ -64,6 +64,62 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProblemDetailResponse"
+
+  /v1/agents/{id}/configuration-version:
+    get:
+      security:
+        - oauth2: [ ocx-ai:read ]
+      tags:
+        - agent
+      summary: Get the canonical, immutable configuration version of an agent
+      description: |
+        Returns the canonical Agent Configuration version payload. The `version` is the SHA-256 hash of the
+        canonical JSON representation of the content (every property except `version` and `context`),
+        so equivalent configuration always produces the same version and a given version always identifies
+        the same immutable content. The version is also returned as strong `ETag`. Clients pin a version for
+        a session/turn and retrieve conditionally with `If-None-Match`: `304` means the pinned version is
+        still current, `200` delivers a new immutable version. Raw credentials are never part of the payload,
+        only credential references.
+      operationId: getAgentConfigurationVersion
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: If-None-Match
+          in: header
+          required: false
+          description: Version (ETag) currently pinned by the client.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Current version payload (new or first retrieved version)
+          headers:
+            ETag:
+              description: Quoted version
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentConfigurationVersion"
+        "304":
+          description: Configuration unchanged, the pinned version is still current
+          headers:
+            ETag:
+              description: Quoted version
+              schema:
+                type: string
+        "404":
+          description: Agent not found
+        "409":
+          description: Version payload cannot be generated because the configuration is invalid (e.g. duplicate tool rules)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetailResponse"
 components:
   securitySchemes:
     oauth2:
@@ -173,6 +229,257 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AgentAbstract"
+    AgentConfigurationVersion:
+      type: object
+      description: |
+        Canonical, immutable Agent Configuration version payload. All lists are canonically ordered
+        (skills by name/id with explicit position, tool servers by name/source/id, tool rules by tool name,
+        credentials by reference, capabilities alphabetically).
+      required:
+        - version
+        - compatibility
+        - context
+        - agent
+      properties:
+        version:
+          type: string
+          description: Content-addressed version `sha256:<hex>`; excludes `version` and `context`.
+        compatibility:
+          $ref: "#/components/schemas/VersionCompatibility"
+        context:
+          $ref: "#/components/schemas/VersionContext"
+        agent:
+          $ref: "#/components/schemas/VersionAgent"
+        voice:
+          $ref: "#/components/schemas/VersionVoiceSettings"
+        provider:
+          $ref: "#/components/schemas/VersionProvider"
+        model:
+          $ref: "#/components/schemas/VersionModel"
+        scaffold:
+          $ref: "#/components/schemas/VersionScaffold"
+        skills:
+          type: array
+          items:
+            $ref: "#/components/schemas/VersionSkill"
+        mcpServers:
+          type: array
+          items:
+            $ref: "#/components/schemas/VersionToolServer"
+        tools:
+          type: array
+          description: Configured non-MCP tools (HTTP, CUSTOM).
+          items:
+            $ref: "#/components/schemas/VersionToolServer"
+        credentials:
+          type: array
+          items:
+            $ref: "#/components/schemas/VersionCredentialReference"
+    VersionCompatibility:
+      type: object
+      properties:
+        schemaVersion:
+          type: string
+          description: Semantic version of the version-payload schema. Consumers must reject unknown major versions.
+        hashAlgorithm:
+          type: string
+        canonicalization:
+          type: string
+        requiredCapabilities:
+          type: array
+          items:
+            type: string
+    VersionContext:
+      type: object
+      description: Request envelope; not part of the hashed version content.
+      properties:
+        tenantId:
+          type: string
+        principal:
+          type: string
+    VersionAgent:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        additionalPrompt:
+          type: string
+        status:
+          type: string
+        a2aEnabled:
+          type: boolean
+    VersionVoiceSettings:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        languageCode:
+          type: string
+    VersionProvider:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        description:
+          type: string
+        llmUrl:
+          type: string
+        authMode:
+          type: string
+        credentialRef:
+          type: string
+    VersionModel:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        modelIdentifier:
+          type: string
+        modelConfig:
+          type: string
+        communicationMode:
+          type: string
+        providerId:
+          type: string
+    VersionScaffold:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        systemPrompt:
+          type: string
+        source:
+          $ref: "#/components/schemas/VersionComponentSource"
+    VersionSkill:
+      type: object
+      properties:
+        position:
+          type: integer
+          format: int32
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        instruction:
+          type: string
+        source:
+          $ref: "#/components/schemas/VersionComponentSource"
+    VersionToolServer:
+      type: object
+      description: |
+        Tool server with its policies. `unlistedToolPermission` applies to tools exposed by the server that have no
+        rule: `DENY` when rules exist (allow-list, source `ALLOW_LIST_DEFAULT`); when no rules exist, all tools are
+        allowed combined with the execution policy (source `LEGACY_ALLOW_ALL`) or, if legacy allow-all is disabled,
+        `DENY` (source `SYSTEM_DEFAULT`).
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+        url:
+          type: string
+        source:
+          $ref: "#/components/schemas/VersionComponentSource"
+        authMode:
+          type: string
+        credentialRef:
+          type: string
+        executionPolicy:
+          $ref: "#/components/schemas/VersionExecutionPolicy"
+        executionPolicyProvenance:
+          $ref: "#/components/schemas/VersionPolicyProvenance"
+        unlistedToolPermission:
+          $ref: "#/components/schemas/VersionToolPermission"
+        unlistedToolPermissionProvenance:
+          $ref: "#/components/schemas/VersionPolicyProvenance"
+        toolRules:
+          type: array
+          items:
+            $ref: "#/components/schemas/VersionToolRule"
+    VersionToolRule:
+      type: object
+      description: |
+        `permission` is the stored rule permission. `effectivePermission` is the permission to enforce: the rule
+        permission combined with the server execution policy (`DENY` stays `DENY`; `ALWAYS_ASK` if the rule or the
+        execution policy is `ALWAYS_ASK`; otherwise `ALWAYS_ALLOW`).
+      properties:
+        toolName:
+          type: string
+        description:
+          type: string
+        permission:
+          $ref: "#/components/schemas/VersionToolPermission"
+        effectivePermission:
+          $ref: "#/components/schemas/VersionToolPermission"
+        provenance:
+          $ref: "#/components/schemas/VersionPolicyProvenance"
+    VersionPolicyProvenance:
+      type: object
+      properties:
+        source:
+          $ref: "#/components/schemas/VersionPolicySource"
+        sourceId:
+          type: string
+        normalization:
+          $ref: "#/components/schemas/VersionPolicyNormalization"
+        storedValue:
+          type: string
+          description: Stored raw value; only present when it was normalized (legacy alias or unknown value).
+    VersionCredentialReference:
+      type: object
+      description: Reference to a credential that must be resolved by the runtime; never contains the secret.
+      properties:
+        ref:
+          type: string
+        ownerType:
+          $ref: "#/components/schemas/VersionCredentialOwnerType"
+        ownerId:
+          type: string
+        authMode:
+          type: string
+        kind:
+          $ref: "#/components/schemas/VersionCredentialKind"
+        configured:
+          type: boolean
+    VersionComponentSource:
+      type: string
+      enum: [ TENANT, GLOBAL ]
+    VersionExecutionPolicy:
+      type: string
+      enum: [ ALWAYS_ASK, ALWAYS_ALLOW ]
+    VersionToolPermission:
+      type: string
+      enum: [ DENY, ALWAYS_ASK, ALWAYS_ALLOW ]
+    VersionPolicySource:
+      type: string
+      enum: [ AGENT_TOOL_RULE, TOOL_EXECUTION_POLICY, SYSTEM_DEFAULT, ALLOW_LIST_DEFAULT, LEGACY_ALLOW_ALL ]
+    VersionPolicyNormalization:
+      type: string
+      enum: [ NONE, LEGACY_ALIAS, MISSING_VALUE_DEFAULTED, UNKNOWN_VALUE_DENIED ]
+    VersionCredentialOwnerType:
+      type: string
+      enum: [ PROVIDER, TOOL, GLOBAL_TOOL ]
+    VersionCredentialKind:
+      type: string
+      enum: [ STORED_SECRET, PRINCIPAL_TOKEN ]
     ProblemDetailResponse:
       type: object
       properties:

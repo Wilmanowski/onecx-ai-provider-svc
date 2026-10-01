@@ -11,14 +11,14 @@ import org.tkit.quarkus.security.test.GenerateKeycloakClient;
 import org.tkit.quarkus.test.WithDBData;
 
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.*;
-import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 
 @QuarkusTest
-@TestHTTPEndpoint(AgentRestV1Controller.class)
 @WithDBData(value = "data/testdata-internal.xml", deleteBeforeInsert = true, deleteAfterTest = true, rinseAndRepeat = true)
 @GenerateKeycloakClient(clientName = "testClient", scopes = { "ocx-ai:read" })
 class AgentRestV1ControllerTest extends AbstractTest {
+
+    private static final String SEARCH_PATH = "/v1/agents/search";
 
     @Test
     void findAgentBySearchCriteriaTest() {
@@ -27,7 +27,7 @@ class AgentRestV1ControllerTest extends AbstractTest {
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .contentType(APPLICATION_JSON)
                 .body(criteria)
-                .post()
+                .post(SEARCH_PATH)
                 .then()
                 .statusCode(OK.getStatusCode())
                 .extract()
@@ -43,7 +43,7 @@ class AgentRestV1ControllerTest extends AbstractTest {
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .contentType(APPLICATION_JSON)
                 .body(criteria)
-                .post()
+                .post(SEARCH_PATH)
                 .then()
                 .statusCode(OK.getStatusCode())
                 .extract()

@@ -21,6 +21,24 @@ public interface AiProviderConfig {
     @WithName("voice-pilot")
     VoicePilotConfig voicePilot();
 
+    /**
+     * Agent Configuration version related configuration.
+     */
+    @WithName("version")
+    VersionConfig version();
+
+    interface VersionConfig {
+
+        /**
+         * When a tool server has no tool rules, all of its tools are allowed (legacy behaviour). Must match
+         * {@code onecx.ai.dispatch.tool.legacy-allow-all} of onecx-ai-provider-runtime so that version consumers and
+         * the text runtime enforce the same policy.
+         */
+        @WithName("legacy-allow-all")
+        @WithDefault("true")
+        boolean legacyAllowAll();
+    }
+
     interface RuntimeClientConfig {
 
         /**

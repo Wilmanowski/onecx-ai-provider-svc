@@ -43,8 +43,6 @@ quarkus.openapi-generator.codegen.spec.onecx_ai_runtime_yaml.enable-security-gen
 ----
 ====
 
-include::onecx-ai-provider-svc-runtime-contract.adoc[opts=optional]
-
 == Extensions
 .Extensions List
 [%collapsible]
