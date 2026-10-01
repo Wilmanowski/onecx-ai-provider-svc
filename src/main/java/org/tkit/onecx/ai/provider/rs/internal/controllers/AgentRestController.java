@@ -2,6 +2,7 @@ package org.tkit.onecx.ai.provider.rs.internal.controllers;
 
 import static jakarta.transaction.Transactional.TxType.NOT_SUPPORTED;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -211,8 +212,9 @@ public class AgentRestController implements AgentInternalApi {
     }
 
     @Override
+    @Transactional
     public Response createAgentMcpToolRule(String agentId, String toolId,
-            CreateAgentMcpToolRuleRequestDTO createAgentMcpToolRuleRequestDTO) {
+            List<CreateAgentMcpToolRuleRequestDTO> createAgentMcpToolRuleRequestDTOs) {
         var agent = dao.findById(agentId);
         if (agent == null) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -225,21 +227,36 @@ public class AgentRestController implements AgentInternalApi {
                 return Response.status(Response.Status.NOT_FOUND).build();
             }
         }
-        var rule = agentRuleMapper.create(createAgentMcpToolRuleRequestDTO, agent, tool, globalTool);
-        rule = agentMcpToolRuleDAO.create(rule);
-        return Response.status(Response.Status.CREATED).entity(agentRuleMapper.map(rule)).build();
+        var rules = new ArrayList<AgentMcpToolRule>();
+        for (var request : createAgentMcpToolRuleRequestDTOs) {
+            var rule = agentRuleMapper.create(request, agent, tool, globalTool);
+            rules.add(agentMcpToolRuleDAO.create(rule));
+        }
+        var result = new AgentMcpToolRuleListDTO();
+        result.setRules(agentRuleMapper.map(rules));
+        return Response.status(Response.Status.CREATED).entity(result).build();
     }
 
     @Override
-    public Response updateAgentMcpToolRule(String agentId, String toolId, String ruleId,
-            UpdateAgentMcpToolRuleRequestDTO updateAgentMcpToolRuleRequestDTO) {
-        var rule = agentMcpToolRuleDAO.findById(ruleId);
-        if (rule == null || !agentRuleBelongsToAgentAndTool(rule, agentId, toolId)) {
-            return Response.status(Response.Status.NOT_FOUND).build();
+    @Transactional
+    public Response updateAgentMcpToolRule(String agentId, String toolId,
+            List<UpdateAgentMcpToolRuleRequestDTO> updateAgentMcpToolRuleRequestDTOs) {
+        var rules = new ArrayList<AgentMcpToolRule>();
+        for (var request : updateAgentMcpToolRuleRequestDTOs) {
+            var rule = agentMcpToolRuleDAO.findById(request.getId());
+            if (rule == null || !agentRuleBelongsToAgentAndTool(rule, agentId, toolId)) {
+                return Response.status(Response.Status.NOT_FOUND).build();
+            }
+            rules.add(rule);
         }
-        agentRuleMapper.update(rule, updateAgentMcpToolRuleRequestDTO);
-        rule = agentMcpToolRuleDAO.update(rule);
-        return Response.ok(agentRuleMapper.map(rule)).build();
+        for (var index = 0; index < rules.size(); index++) {
+            var rule = rules.get(index);
+            agentRuleMapper.update(rule, updateAgentMcpToolRuleRequestDTOs.get(index));
+            rules.set(index, agentMcpToolRuleDAO.update(rule));
+        }
+        var result = new AgentMcpToolRuleListDTO();
+        result.setRules(agentRuleMapper.map(rules));
+        return Response.ok(result).build();
     }
 
     @Override
