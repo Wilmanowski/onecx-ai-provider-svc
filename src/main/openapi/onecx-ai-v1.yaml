@@ -140,6 +140,10 @@ components:
           type: string
         description:
           type: string
+        voiceEnabled:
+          type: boolean
+        languageCode:
+          type: string
         filter:
           $ref: "#/components/schemas/AgentFilter"
     AgentSearchCriteria:

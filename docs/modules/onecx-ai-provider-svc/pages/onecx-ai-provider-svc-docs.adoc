@@ -45,6 +45,15 @@ quarkus.openapi-generator.codegen.spec.onecx_ai_runtime_yaml.enable-security-gen
 
 include::onecx-ai-provider-svc-runtime-contract.adoc[opts=optional]
 
+== Agent search response
+
+The external `POST /v1/agents/search` endpoint returns each matching agent as an `AgentAbstract`. In addition to the existing fields, each result now carries the agent's voice settings so chat clients can decide whether to offer voice without fetching the full configuration:
+
+* `voiceEnabled` (`boolean`) — whether the agent has voice support. Defaults to `false` when the agent has no voice settings.
+* `languageCode` (`string`) — the voice language code. Omitted when the agent does not have voice configured.
+
+Existing search fields, criteria, paging, and tenant isolation are unchanged.
+
 == Extensions
 .Extensions List
 [%collapsible]

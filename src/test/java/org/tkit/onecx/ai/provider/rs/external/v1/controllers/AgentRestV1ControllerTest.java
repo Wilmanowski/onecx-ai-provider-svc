@@ -37,6 +37,14 @@ class AgentRestV1ControllerTest extends AbstractTest {
         assertThat(data.getTotalElements()).isEqualTo(3);
         assertThat(data.getStream()).isNotNull().hasSize(3);
 
+        var voiceAgent = data.getStream().stream().filter(a -> a.getId().equals("agent-44-444")).findFirst().orElseThrow();
+        assertThat(voiceAgent.getVoiceEnabled()).isTrue();
+        assertThat(voiceAgent.getLanguageCode()).isEqualTo("en");
+
+        var plainAgent = data.getStream().stream().filter(a -> a.getId().equals("agent-11-111")).findFirst().orElseThrow();
+        assertThat(plainAgent.getVoiceEnabled()).isFalse();
+        assertThat(plainAgent.getLanguageCode()).isNull();
+
         criteria.setPageNumber(1);
         criteria.setPageSize(2);
         data = given()
