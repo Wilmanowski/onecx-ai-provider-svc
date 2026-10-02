@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.groups.Tuple.tuple;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.tkit.onecx.ai.provider.rs.external.v1.mappers.AgentConfigurationVersionMapper;
 import org.tkit.onecx.ai.provider.test.AbstractTest;
 import org.tkit.quarkus.security.test.GenerateKeycloakClient;
@@ -138,6 +140,42 @@ class AgentConfigurationVersionRestV1ControllerTest extends AbstractTest {
                 .get(VERSION_PATH, "snap-agent-dup")
                 .then()
                 .statusCode(CONFLICT.getStatusCode());
+    }
+
+    @Test
+    void getVersion_matchingIfNoneMatch_returnsNotModified() {
+        var versionPayload = getVersion("snap-agent-1");
+        var version = versionPayload.getVersion();
+
+        for (var ifNoneMatch : new String[] {
+                "\"" + version + "\"", "W/\"" + version + "\"", version, "*", "\"sha256:other\", W/\"" + version + "\"" }) {
+            var response = given()
+                    .auth().oauth2(getKeycloakClientToken("testClient"))
+                    .header("If-None-Match", ifNoneMatch)
+                    .get(VERSION_PATH, "snap-agent-1")
+                    .then()
+                    .statusCode(NOT_MODIFIED.getStatusCode())
+                    .extract();
+
+            assertThat(response.header("ETag")).isEqualTo("\"" + version + "\"");
+            assertThat(response.header("Cache-Control")).contains("no-cache", "private");
+            assertThat(response.asString()).isEmpty();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "\"sha256:other\"", "W/\"sha256:other\"", "sha256:other", "" })
+    void getVersion_nonMatchingIfNoneMatch_returnsPayload(String ifNoneMatch) {
+        var response = given()
+                .auth().oauth2(getKeycloakClientToken("testClient"))
+                .header("If-None-Match", ifNoneMatch)
+                .get(VERSION_PATH, "snap-agent-1")
+                .then()
+                .statusCode(OK.getStatusCode())
+                .extract();
+
+        assertThat(response.as(AgentConfigurationVersionDTOV1.class).getVersion()).startsWith("sha256:");
+        assertThat(response.header("ETag")).isNotBlank();
     }
 
     @Test
