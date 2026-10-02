@@ -1,6 +1,9 @@
 package org.tkit.onecx.ai.provider.common.services.version;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
+
+import java.lang.reflect.Constructor;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -9,6 +12,13 @@ import org.tkit.onecx.ai.provider.domain.models.enums.ExecutionPolicy;
 import org.tkit.onecx.ai.provider.domain.models.enums.ToolPermission;
 
 class PolicyNormalizerTest {
+
+    @Test
+    void constructor_isAccessibleByReflection() throws Exception {
+        Constructor<PolicyNormalizer> constructor = PolicyNormalizer.class.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        assertThatNoException().isThrownBy(() -> constructor.newInstance());
+    }
 
     @ParameterizedTest
     @CsvSource({

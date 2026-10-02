@@ -1,8 +1,10 @@
 package org.tkit.onecx.ai.provider.common.services.version;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.lang.reflect.Constructor;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -15,6 +17,13 @@ import org.junit.jupiter.params.provider.ValueSource;
 import com.fasterxml.jackson.databind.node.POJONode;
 
 class CanonicalVersionHasherTest {
+
+    @Test
+    void constructor_isAccessibleByReflection() throws Exception {
+        Constructor<CanonicalVersionHasher> constructor = CanonicalVersionHasher.class.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        assertThatNoException().isThrownBy(() -> constructor.newInstance());
+    }
 
     @Test
     void canonicalBytes_sortsPropertiesAndOmitsNulls() {
