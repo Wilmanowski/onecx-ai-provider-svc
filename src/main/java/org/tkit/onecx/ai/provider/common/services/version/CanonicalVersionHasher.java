@@ -39,7 +39,8 @@ public final class CanonicalVersionHasher {
             .enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
             .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
             .disable(SerializationFeature.INDENT_OUTPUT)
-            .serializationInclusion(JsonInclude.Include.NON_NULL)
+            .defaultPropertyInclusion(
+                    JsonInclude.Value.construct(JsonInclude.Include.NON_NULL, JsonInclude.Include.NON_NULL))
             .build();
 
     private static final TypeReference<TreeMap<String, Object>> TREE = new TypeReference<>() {

@@ -5,6 +5,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.lang.reflect.Method;
 import java.util.List;
 
 import jakarta.inject.Inject;
@@ -12,6 +13,7 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.mockito.stubbing.Answer;
 import org.tkit.onecx.ai.provider.domain.daos.AgentDAO;
 import org.tkit.onecx.ai.provider.domain.daos.AgentMcpToolRuleDAO;
 import org.tkit.onecx.ai.provider.domain.models.Agent;
@@ -69,6 +71,37 @@ class AgentConfigurationVersionServiceTest extends AbstractTest {
 
             assertThat(result).containsSame(dto);
             verify(mapper).build(agent, rules, "tenant-a", null);
+        }
+    }
+
+    @Test
+    void getVersion_usesRequestContextData_whenContextExistsAndAgentTenantMissing() throws Exception {
+        var agent = new Agent();
+        agent.setId("agent-2");
+        agent.setTenantId(null);
+        var rules = List.<AgentMcpToolRule> of();
+        var dto = new AgentConfigurationVersionDTOV1();
+
+        when(agentDAO.findById("agent-2")).thenReturn(agent);
+        when(agentMcpToolRuleDAO.findByAgentId("agent-2")).thenReturn(rules);
+        when(mapper.build(agent, rules, "tenant-from-context", "alice")).thenReturn(dto);
+
+        Method getMethod = ApplicationContext.class.getMethod("get");
+        Class<?> returnType = getMethod.getReturnType();
+        Answer<Object> answer = invocation -> switch (invocation.getMethod().getName()) {
+            case "getTenantId" -> "tenant-from-context";
+            case "getPrincipal" -> "alice";
+            default -> null;
+        };
+        Object contextObject = Mockito.mock(returnType, answer);
+
+        try (MockedStatic<ApplicationContext> context = Mockito.mockStatic(ApplicationContext.class)) {
+            context.when(ApplicationContext::get).thenReturn(contextObject);
+
+            var result = service.getVersion("agent-2");
+
+            assertThat(result).containsSame(dto);
+            verify(mapper).build(agent, rules, "tenant-from-context", "alice");
         }
     }
 

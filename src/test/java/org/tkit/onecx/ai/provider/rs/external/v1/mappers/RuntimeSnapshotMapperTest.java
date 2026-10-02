@@ -2,7 +2,6 @@ package org.tkit.onecx.ai.provider.rs.external.v1.mappers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -303,9 +302,9 @@ class RuntimeSnapshotMapperTest extends AbstractTest {
         var ignored = new AgentMcpToolRule();
         ignored.setToolName("ignored");
 
-        when(agentMcpToolRuleDAO.findByAgentAndToolIds(eq("agent-1"), eq(List.of("tool-1"))))
+        when(agentMcpToolRuleDAO.findByAgentAndToolIds("agent-1", List.of("tool-1")))
                 .thenReturn(List.of(ruleTenant, ignored));
-        when(agentMcpToolRuleDAO.findByAgentAndGlobalToolIds(eq("agent-1"), eq(List.of("gtool-1"))))
+        when(agentMcpToolRuleDAO.findByAgentAndGlobalToolIds("agent-1", List.of("gtool-1")))
                 .thenReturn(List.of(ruleGlobal, ignored));
 
         var agent = new Agent();

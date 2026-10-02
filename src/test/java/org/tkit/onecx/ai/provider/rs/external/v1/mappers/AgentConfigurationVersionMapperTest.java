@@ -74,57 +74,14 @@ class AgentConfigurationVersionMapperTest {
         var snapshot = mapper.build(agent(false), rules(false), "tenant-a", "alice");
 
         assertThat(snapshot.getVersion()).startsWith("sha256:").hasSize("sha256:".length() + 64);
-        assertThat(snapshot.getContext().getTenantId()).isEqualTo("tenant-a");
-        assertThat(snapshot.getContext().getPrincipal()).isEqualTo("alice");
-
-        assertThat(snapshot.getAgent().getId()).isEqualTo("agent-1");
-        assertThat(snapshot.getAgent().getName()).isEqualTo("agent");
-        assertThat(snapshot.getAgent().getAdditionalPrompt()).isEqualTo("be precise");
-        assertThat(snapshot.getAgent().getStatus()).isEqualTo("LIVE");
-        assertThat(snapshot.getAgent().getA2aEnabled()).isTrue();
-
-        assertThat(snapshot.getVoice().getEnabled()).isTrue();
-        assertThat(snapshot.getVoice().getLanguageCode()).isEqualTo("de");
-
-        assertThat(snapshot.getProvider().getId()).isEqualTo("provider-1");
-        assertThat(snapshot.getProvider().getType()).isEqualTo("OPENAI");
-        assertThat(snapshot.getProvider().getLlmUrl()).isEqualTo("http://llm");
-        assertThat(snapshot.getProvider().getCredentialRef()).isEqualTo("credential://provider/provider-1/api-key");
-
-        assertThat(snapshot.getModel().getId()).isEqualTo("model-1");
-        assertThat(snapshot.getModel().getModelIdentifier()).isEqualTo("gpt-4.1");
-        assertThat(snapshot.getModel().getModelConfig()).isEqualTo("temperature=0.2");
-        assertThat(snapshot.getModel().getCommunicationMode()).isEqualTo("SYNC");
-        assertThat(snapshot.getModel().getProviderId()).isEqualTo("provider-1");
-
-        assertThat(snapshot.getScaffold().getId()).isEqualTo("scaffold-1");
-        assertThat(snapshot.getScaffold().getSystemPrompt()).isEqualTo("system prompt");
-        assertThat(snapshot.getScaffold().getSource()).isEqualTo(VersionComponentSourceDTOV1.TENANT);
-
-        assertThat(snapshot.getSkills()).extracting(VersionSkillDTOV1::getName)
-                .containsExactly("a-skill", "b-global-skill", "c-skill");
-        assertThat(snapshot.getSkills()).extracting(VersionSkillDTOV1::getPosition).containsExactly(0, 1, 2);
-        assertThat(snapshot.getSkills().get(1).getSource()).isEqualTo(VersionComponentSourceDTOV1.GLOBAL);
-
-        assertThat(snapshot.getMcpServers()).extracting(VersionToolServerDTOV1::getName)
-                .containsExactly("global-mcp-server", "mcp-server");
-
-        var server = snapshot.getMcpServers().get(1);
-        assertThat(server.getUrl()).isEqualTo("http://tool-mcp");
-        assertThat(server.getSource()).isEqualTo(VersionComponentSourceDTOV1.TENANT);
-        assertThat(server.getToolRules()).extracting(VersionToolRuleDTOV1::getToolName)
-                .containsExactly("createItem", "deleteItem", "readItem");
-        assertThat(server.getToolRules()).extracting(VersionToolRuleDTOV1::getPermission)
-                .containsExactly(VersionToolPermissionDTOV1.ALWAYS_ASK, VersionToolPermissionDTOV1.DENY,
-                        VersionToolPermissionDTOV1.ALWAYS_ASK);
-        assertThat(server.getToolRules()).extracting(VersionToolRuleDTOV1::getPolicySource)
-                .containsExactly(VersionPolicySourceDTOV1.AGENT_TOOL_RULE, VersionPolicySourceDTOV1.AGENT_TOOL_RULE,
-                        VersionPolicySourceDTOV1.TOOL_EXECUTION_POLICY);
-        assertThat(server.getUnlistedToolPermission()).isEqualTo(VersionToolPermissionDTOV1.DENY);
-        assertThat(server.getUnlistedToolPermissionSource()).isEqualTo(VersionPolicySourceDTOV1.SYSTEM_DEFAULT);
-
-        assertThat(snapshot.getCompatibility().getSchemaVersion())
-                .isEqualTo(AgentConfigurationVersionMapper.SCHEMA_VERSION);
+        assertSnapshotContext(snapshot);
+        assertSnapshotAgent(snapshot);
+        assertSnapshotVoice(snapshot);
+        assertSnapshotProvider(snapshot);
+        assertSnapshotModel(snapshot);
+        assertSnapshotScaffoldAndSkills(snapshot);
+        assertSnapshotMcpServers(snapshot);
+        assertThat(snapshot.getCompatibility().getSchemaVersion()).isEqualTo(AgentConfigurationVersionMapper.SCHEMA_VERSION);
     }
 
     @Test
@@ -179,8 +136,10 @@ class AgentConfigurationVersionMapperTest {
         var bob = mapper.build(agent(false), rules(false), "tenant-a", "bob");
 
         assertThat(bob.getVersion()).isEqualTo(alice.getVersion());
-        assertThat(new String(CanonicalVersionHasher.canonicalBytes(alice), StandardCharsets.UTF_8))
-                .doesNotContain("alice", "tenant-a", "\"version\"");
+        var canonical = new String(CanonicalVersionHasher.canonicalBytes(alice), StandardCharsets.UTF_8);
+        assertThat(canonical.contains("alice")).isFalse();
+        assertThat(canonical.contains("tenant-a")).isFalse();
+        assertThat(canonical.contains("\"version\"")).isFalse();
     }
 
     @Test
@@ -216,7 +175,9 @@ class AgentConfigurationVersionMapperTest {
         var snapshot = mapper.build(agent(false), rules(false), "t", null);
         var json = new String(CanonicalVersionHasher.canonicalBytes(snapshot), StandardCharsets.UTF_8);
 
-        assertThat(json).doesNotContain("null").doesNotContain("\n").doesNotContain(": ");
+        assertThat(json.contains("null")).isFalse();
+        assertThat(json.contains("\n")).isFalse();
+        assertThat(json.contains(": ")).isFalse();
         assertThat(json.indexOf("\"agent\"")).isLessThan(json.indexOf("\"compatibility\""));
         assertThat(json.indexOf("\"compatibility\"")).isLessThan(json.indexOf("\"mcpServers\""));
     }
@@ -227,12 +188,13 @@ class AgentConfigurationVersionMapperTest {
     void duplicateExactToolRules_invalidateVersion_independentOfOrder() {
         var duplicates = new ArrayList<>(rules(false));
         duplicates.add(rule("rule-read-2", mcpTool, null, "readItem", ToolPermission.DENY));
+        var mappedAgent = agent(false);
 
         var reversed = new ArrayList<>(duplicates);
         Collections.reverse(reversed);
 
         for (var ruleList : List.of(duplicates, reversed)) {
-            assertThatThrownBy(() -> mapper.build(agent(false), ruleList, "t", null))
+            assertThatThrownBy(() -> mapper.build(mappedAgent, ruleList, "t", null))
                     .isInstanceOfSatisfying(VersionGenerationException.class, ex -> {
                         assertThat(ex.getErrorKey())
                                 .isEqualTo(VersionGenerationException.ErrorKeys.DUPLICATE_TOOL_RULE);
@@ -248,8 +210,9 @@ class AgentConfigurationVersionMapperTest {
     void duplicateToolRules_withSamePermission_stillInvalidateVersion() {
         var duplicates = new ArrayList<>(rules(false));
         duplicates.add(rule("rule-read-2", mcpTool, null, "readItem", ToolPermission.ALWAYS_ALLOW));
+        var mappedAgent = agent(false);
 
-        assertThatThrownBy(() -> mapper.build(agent(false), duplicates, "t", null))
+        assertThatThrownBy(() -> mapper.build(mappedAgent, duplicates, "t", null))
                 .isInstanceOf(VersionGenerationException.class);
     }
 
@@ -257,8 +220,9 @@ class AgentConfigurationVersionMapperTest {
     void duplicateToolRules_onGlobalTool_invalidateVersion() {
         var duplicates = new ArrayList<>(rules(false));
         duplicates.add(rule("rule-global-2", null, globalMcpTool, "globalRead", ToolPermission.DENY));
+        var mappedAgent = agent(false);
 
-        assertThatThrownBy(() -> mapper.build(agent(false), duplicates, "t", null))
+        assertThatThrownBy(() -> mapper.build(mappedAgent, duplicates, "t", null))
                 .isInstanceOfSatisfying(VersionGenerationException.class,
                         ex -> assertThat(ex.getParams()).containsEntry("toolId", "gtool-mcp"));
     }
@@ -272,9 +236,10 @@ class AgentConfigurationVersionMapperTest {
             if (reversed) {
                 Collections.reverse(duplicates);
             }
+            var mappedAgent = agent(reversed);
 
             // "global-mcp-server" precedes "mcp-server" in canonical order (name -> source -> id)
-            assertThatThrownBy(() -> mapper.build(agent(reversed), duplicates, "t", null))
+            assertThatThrownBy(() -> mapper.build(mappedAgent, duplicates, "t", null))
                     .isInstanceOfSatisfying(VersionGenerationException.class,
                             ex -> assertThat(ex.getParams()).containsEntry("toolId", "gtool-mcp")
                                     .containsEntry("toolName", "globalRead")
@@ -429,8 +394,10 @@ class AgentConfigurationVersionMapperTest {
         var snapshot = mapper.build(agent(false), rules(false), "t", "alice");
         var json = objectMapper.writeValueAsString(snapshot);
 
-        assertThat(json).doesNotContain(PROVIDER_SECRET, TOOL_SECRET, GLOBAL_TOOL_SECRET)
-                .doesNotContainIgnoringCase("apiKey")
+        assertThat(json.contains(PROVIDER_SECRET)).isFalse();
+        assertThat(json.contains(TOOL_SECRET)).isFalse();
+        assertThat(json.contains(GLOBAL_TOOL_SECRET)).isFalse();
+        assertThat(json).doesNotContainIgnoringCase("apiKey")
                 .doesNotContainIgnoringCase("authorization")
                 .doesNotContainIgnoringCase("bearer");
     }
@@ -457,6 +424,68 @@ class AgentConfigurationVersionMapperTest {
         // API_KEY auth keeps a credential reference even when secret content is blank.
         assertThat(snapshot.getProvider().getCredentialRef()).isEqualTo("credential://provider/provider-1/api-key");
         assertThat(server(snapshot, "tool-mcp").getCredentialRef()).isNull();
+    }
+
+    private static void assertSnapshotContext(AgentConfigurationVersionDTOV1 snapshot) {
+        assertThat(snapshot.getContext().getTenantId()).isEqualTo("tenant-a");
+        assertThat(snapshot.getContext().getPrincipal()).isEqualTo("alice");
+    }
+
+    private static void assertSnapshotAgent(AgentConfigurationVersionDTOV1 snapshot) {
+        assertThat(snapshot.getAgent().getId()).isEqualTo("agent-1");
+        assertThat(snapshot.getAgent().getName()).isEqualTo("agent");
+        assertThat(snapshot.getAgent().getAdditionalPrompt()).isEqualTo("be precise");
+        assertThat(snapshot.getAgent().getStatus()).isEqualTo("LIVE");
+        assertThat(snapshot.getAgent().getA2aEnabled()).isTrue();
+    }
+
+    private static void assertSnapshotVoice(AgentConfigurationVersionDTOV1 snapshot) {
+        assertThat(snapshot.getVoice().getEnabled()).isTrue();
+        assertThat(snapshot.getVoice().getLanguageCode()).isEqualTo("de");
+    }
+
+    private static void assertSnapshotProvider(AgentConfigurationVersionDTOV1 snapshot) {
+        assertThat(snapshot.getProvider().getId()).isEqualTo("provider-1");
+        assertThat(snapshot.getProvider().getType()).isEqualTo("OPENAI");
+        assertThat(snapshot.getProvider().getLlmUrl()).isEqualTo("http://llm");
+        assertThat(snapshot.getProvider().getCredentialRef()).isEqualTo("credential://provider/provider-1/api-key");
+    }
+
+    private static void assertSnapshotModel(AgentConfigurationVersionDTOV1 snapshot) {
+        assertThat(snapshot.getModel().getId()).isEqualTo("model-1");
+        assertThat(snapshot.getModel().getModelIdentifier()).isEqualTo("gpt-4.1");
+        assertThat(snapshot.getModel().getModelConfig()).isEqualTo("temperature=0.2");
+        assertThat(snapshot.getModel().getCommunicationMode()).isEqualTo("SYNC");
+        assertThat(snapshot.getModel().getProviderId()).isEqualTo("provider-1");
+    }
+
+    private static void assertSnapshotScaffoldAndSkills(AgentConfigurationVersionDTOV1 snapshot) {
+        assertThat(snapshot.getScaffold().getId()).isEqualTo("scaffold-1");
+        assertThat(snapshot.getScaffold().getSystemPrompt()).isEqualTo("system prompt");
+        assertThat(snapshot.getScaffold().getSource()).isEqualTo(VersionComponentSourceDTOV1.TENANT);
+        assertThat(snapshot.getSkills()).extracting(VersionSkillDTOV1::getName)
+                .containsExactly("a-skill", "b-global-skill", "c-skill");
+        assertThat(snapshot.getSkills()).extracting(VersionSkillDTOV1::getPosition).containsExactly(0, 1, 2);
+        assertThat(snapshot.getSkills().get(1).getSource()).isEqualTo(VersionComponentSourceDTOV1.GLOBAL);
+    }
+
+    private static void assertSnapshotMcpServers(AgentConfigurationVersionDTOV1 snapshot) {
+        assertThat(snapshot.getMcpServers()).extracting(VersionToolServerDTOV1::getName)
+                .containsExactly("global-mcp-server", "mcp-server");
+
+        var server = snapshot.getMcpServers().get(1);
+        assertThat(server.getUrl()).isEqualTo("http://tool-mcp");
+        assertThat(server.getSource()).isEqualTo(VersionComponentSourceDTOV1.TENANT);
+        assertThat(server.getToolRules()).extracting(VersionToolRuleDTOV1::getToolName)
+                .containsExactly("createItem", "deleteItem", "readItem");
+        assertThat(server.getToolRules()).extracting(VersionToolRuleDTOV1::getPermission)
+                .containsExactly(VersionToolPermissionDTOV1.ALWAYS_ASK, VersionToolPermissionDTOV1.DENY,
+                        VersionToolPermissionDTOV1.ALWAYS_ASK);
+        assertThat(server.getToolRules()).extracting(VersionToolRuleDTOV1::getPolicySource)
+                .containsExactly(VersionPolicySourceDTOV1.AGENT_TOOL_RULE, VersionPolicySourceDTOV1.AGENT_TOOL_RULE,
+                        VersionPolicySourceDTOV1.TOOL_EXECUTION_POLICY);
+        assertThat(server.getUnlistedToolPermission()).isEqualTo(VersionToolPermissionDTOV1.DENY);
+        assertThat(server.getUnlistedToolPermissionSource()).isEqualTo(VersionPolicySourceDTOV1.SYSTEM_DEFAULT);
     }
 
     // ------------------------------------------------------------------ fixtures
