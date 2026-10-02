@@ -145,7 +145,7 @@ class AgentConfigurationVersionRestV1ControllerTest extends AbstractTest {
                 .log().ifValidationFails()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .contentType(APPLICATION_JSON)
-                .body(createRuleRequest("archiveItem", "archives items", ToolPermissionDTO.DENY))
+                .body(createRuleRequest("archiveItem", "archives items", ToolPermissionDTO.ALWAYS_ALLOW))
                 .post("/internal/agents/{agentId}/tools/{toolId}/mcp-tool-rules", "snap-agent-1", "snap-tool-legacy")
                 .then()
                 .statusCode(CREATED.getStatusCode());
@@ -162,7 +162,7 @@ class AgentConfigurationVersionRestV1ControllerTest extends AbstractTest {
         assertThat(newVersion.getVersion()).isNotEqualTo(version);
         assertThat(changed.header("ETag")).isEqualTo("\"" + newVersion.getVersion() + "\"");
         assertThat(rule(server(newVersion, "snap-tool-legacy"), "archiveItem").getPermission())
-                .isEqualTo(VersionToolPermissionDTOV1.DENY);
+                .isEqualTo(VersionToolPermissionDTOV1.ALWAYS_ALLOW);
 
         // the new version is pinned again
         given()
@@ -205,7 +205,7 @@ class AgentConfigurationVersionRestV1ControllerTest extends AbstractTest {
                 .log().ifValidationFails()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .contentType(APPLICATION_JSON)
-                .body(createRuleRequest("readItem", "reads items", ToolPermissionDTO.DENY))
+                .body(createRuleRequest("readItem", "reads items", ToolPermissionDTO.ALWAYS_ALLOW))
                 .post("/internal/agents/{agentId}/tools/{toolId}/mcp-tool-rules", "snap-agent-1", "snap-tool-legacy")
                 .then()
                 .statusCode(CREATED.getStatusCode());
