@@ -144,7 +144,7 @@ class AgentConfigurationVersionRestV1ControllerTest extends AbstractTest {
         given()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .contentType(APPLICATION_JSON)
-                .body(Map.of("toolName", "archiveItem", "allowed", "DENY"))
+                .body(Map.of("toolName", "archiveItem", "toolDescription", "archives items", "allowed", "DENY"))
                 .post("/internal/agents/{agentId}/tools/{toolId}/mcp-tool-rules", "snap-agent-1", "snap-tool-legacy")
                 .then()
                 .statusCode(CREATED.getStatusCode());
@@ -203,7 +203,7 @@ class AgentConfigurationVersionRestV1ControllerTest extends AbstractTest {
         given()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .contentType(APPLICATION_JSON)
-                .body(Map.of("toolName", "readItem", "allowed", "DENY"))
+                .body(Map.of("toolName", "readItem", "toolDescription", "reads items", "allowed", "DENY"))
                 .post("/internal/agents/{agentId}/tools/{toolId}/mcp-tool-rules", "snap-agent-1", "snap-tool-legacy")
                 .then()
                 .statusCode(CREATED.getStatusCode());
