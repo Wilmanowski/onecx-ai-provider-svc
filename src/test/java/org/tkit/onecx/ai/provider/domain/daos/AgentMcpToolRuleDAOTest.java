@@ -43,8 +43,6 @@ class AgentMcpToolRuleDAOTest {
                 AgentMcpToolRuleDAO.ErrorKeys.ERROR_FIND_RULES_BY_AGENT_AND_TOOL_IDS);
         methodExceptionTests(() -> dao.findByAgentAndGlobalToolIds("a1", List.of("g1")),
                 AgentMcpToolRuleDAO.ErrorKeys.ERROR_FIND_RULES_BY_AGENT_AND_GLOBAL_TOOL_IDS);
-        methodExceptionTests(() -> dao.findStoredExecutionPoliciesByAgentId("a1"),
-                AgentMcpToolRuleDAO.ErrorKeys.ERROR_FIND_STORED_EXECUTION_POLICIES_BY_AGENT_ID);
         methodExceptionTests(() -> dao.deleteByAgentId("a1"),
                 AgentMcpToolRuleDAO.ErrorKeys.ERROR_DELETE_RULES_BY_AGENT_ID);
         methodExceptionTests(() -> dao.deleteByAgentAndToolId("a1", "t1"),

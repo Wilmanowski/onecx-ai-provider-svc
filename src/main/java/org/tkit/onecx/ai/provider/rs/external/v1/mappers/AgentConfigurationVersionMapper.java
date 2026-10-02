@@ -14,13 +14,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.TreeSet;
 
 import jakarta.enterprise.context.ApplicationScoped;
 
 import org.tkit.onecx.ai.provider.common.services.version.CanonicalVersionHasher;
 import org.tkit.onecx.ai.provider.common.services.version.PolicyNormalizer;
-import org.tkit.onecx.ai.provider.common.services.version.StoredPolicyValues;
 import org.tkit.onecx.ai.provider.common.services.version.VersionGenerationException;
 import org.tkit.onecx.ai.provider.domain.models.AbstractSkill;
 import org.tkit.onecx.ai.provider.domain.models.AbstractTool;
@@ -40,13 +38,7 @@ import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionAgentDTOV1;
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionCompatibilityDTOV1;
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionComponentSourceDTOV1;
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionContextDTOV1;
-import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionCredentialKindDTOV1;
-import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionCredentialOwnerTypeDTOV1;
-import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionCredentialReferenceDTOV1;
-import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionExecutionPolicyDTOV1;
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionModelDTOV1;
-import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionPolicyNormalizationDTOV1;
-import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionPolicyProvenanceDTOV1;
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionPolicySourceDTOV1;
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionProviderDTOV1;
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionScaffoldDTOV1;
@@ -61,19 +53,12 @@ import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionVoiceSettingsD
  * <p>
  * Every collection is ordered canonically so that equivalent configuration always results in the same
  * version payload
- * version, independent of the (unordered) collections loaded from the database. Raw credentials are never copied,
- * only credential references are published.
+ * version, independent of the (unordered) collections loaded from the database.
  */
 @ApplicationScoped
 public class AgentConfigurationVersionMapper {
 
-    public static final String SCHEMA_VERSION = "1.0.0";
-
-    public static final String CAPABILITY_A2A = "a2a";
-    public static final String CAPABILITY_MCP = "mcp";
-    public static final String CAPABILITY_MCP_TOOL_RULES = "mcp-tool-rules";
-    public static final String CAPABILITY_PRINCIPAL_TOKEN = "principal-token-propagation";
-    public static final String CAPABILITY_VOICE = "voice";
+    public static final String SCHEMA_VERSION = "2.0.0";
 
     static final String CREDENTIAL_REF_PREFIX = "credential://";
 
@@ -92,43 +77,38 @@ public class AgentConfigurationVersionMapper {
      * Tool assigned to the agent together with the agent rules for it.
      */
     private record ToolServerSource(AbstractTool tool, VersionComponentSourceDTOV1 source,
-            VersionCredentialOwnerTypeDTOV1 ownerType, List<AgentMcpToolRule> rules) {
+            CredentialOwner ownerType, List<AgentMcpToolRule> rules) {
     }
 
-    /**
-     * Default of {@code onecx.ai.provider.version.legacy-allow-all}, aligned with the runtime default.
-     */
-    public static final boolean DEFAULT_LEGACY_ALLOW_ALL = true;
+    private enum CredentialOwner {
+        PROVIDER("provider"),
+        TOOL("tool"),
+        GLOBAL_TOOL("global-tool");
 
-    public AgentConfigurationVersionDTOV1 build(Agent agent, Collection<AgentMcpToolRule> rules,
-            StoredPolicyValues storedPolicies, String tenantId, String principal) {
-        return build(agent, rules, storedPolicies, tenantId, principal, DEFAULT_LEGACY_ALLOW_ALL);
+        private final String pathSegment;
+
+        CredentialOwner(String pathSegment) {
+            this.pathSegment = pathSegment;
+        }
     }
 
-    /**
-     * @param legacyAllowAll when a tool server has no rules, allow all of its tools (legacy runtime behaviour)
-     */
+    private record PermissionDecision(VersionToolPermissionDTOV1 permission, VersionPolicySourceDTOV1 source) {
+    }
+
     public AgentConfigurationVersionDTOV1 build(Agent agent, Collection<AgentMcpToolRule> rules,
-            StoredPolicyValues storedPolicies, String tenantId, String principal, boolean legacyAllowAll) {
+            String tenantId, String principal) {
         Objects.requireNonNull(agent, "agent must not be null");
-        var stored = storedPolicies == null ? StoredPolicyValues.empty() : storedPolicies;
-        var credentials = new ArrayList<VersionCredentialReferenceDTOV1>();
 
         var snapshot = new AgentConfigurationVersionDTOV1();
         snapshot.setContext(context(tenantId, principal));
         snapshot.setAgent(agent(agent));
         snapshot.setVoice(voice(agent));
         snapshot.setModel(model(agent.getModel()));
-        snapshot.setProvider(provider(agent.getModel() != null ? agent.getModel().getProvider() : null, credentials));
+        snapshot.setProvider(provider(agent.getModel() != null ? agent.getModel().getProvider() : null));
         scaffoldAndSkills(agent, snapshot);
 
-        var servers = toolServers(agent, rules, stored, credentials, legacyAllowAll);
-        snapshot.setMcpServers(servers.stream().filter(s -> ToolType.MCP.name().equals(s.getType())).toList());
-        snapshot.setTools(servers.stream().filter(s -> !ToolType.MCP.name().equals(s.getType())).toList());
-
-        credentials.sort(comparing(VersionCredentialReferenceDTOV1::getRef, STRING_ORDER));
-        snapshot.setCredentials(credentials);
-        snapshot.setCompatibility(compatibility(snapshot));
+        snapshot.setMcpServers(toolServers(agent, rules));
+        snapshot.setCompatibility(compatibility());
         snapshot.setVersion(CanonicalVersionHasher.version(snapshot));
         return snapshot;
     }
@@ -175,7 +155,7 @@ public class AgentConfigurationVersionMapper {
         return dto;
     }
 
-    private VersionProviderDTOV1 provider(Provider provider, List<VersionCredentialReferenceDTOV1> credentials) {
+    private VersionProviderDTOV1 provider(Provider provider) {
         if (provider == null) {
             return null;
         }
@@ -186,8 +166,8 @@ public class AgentConfigurationVersionMapper {
         dto.setDescription(provider.getDescription());
         dto.setLlmUrl(provider.getLlmUrl());
         dto.setAuthMode(provider.getAuthMode() != null ? provider.getAuthMode().name() : null);
-        dto.setCredentialRef(credentialRef(VersionCredentialOwnerTypeDTOV1.PROVIDER, provider.getId(),
-                provider.getAuthMode(), provider.getApiKey(), credentials));
+        dto.setCredentialRef(credentialRef(CredentialOwner.PROVIDER, provider.getId(), provider.getAuthMode(),
+                provider.getApiKey()));
         return dto;
     }
 
@@ -238,8 +218,7 @@ public class AgentConfigurationVersionMapper {
         });
     }
 
-    private List<VersionToolServerDTOV1> toolServers(Agent agent, Collection<AgentMcpToolRule> rules,
-            StoredPolicyValues stored, List<VersionCredentialReferenceDTOV1> credentials, boolean legacyAllowAll) {
+    private List<VersionToolServerDTOV1> toolServers(Agent agent, Collection<AgentMcpToolRule> rules) {
         var rulesByToolId = new HashMap<String, List<AgentMcpToolRule>>();
         var rulesByGlobalToolId = new HashMap<String, List<AgentMcpToolRule>>();
         if (rules != null) {
@@ -254,15 +233,15 @@ public class AgentConfigurationVersionMapper {
 
         var candidates = new ArrayList<ToolServerSource>();
         if (agent.getTools() != null) {
-            agent.getTools().stream().filter(Objects::nonNull)
+            agent.getTools().stream().filter(Objects::nonNull).filter(AgentConfigurationVersionMapper::isMcpTool)
                     .forEach(tool -> candidates.add(new ToolServerSource(tool, VersionComponentSourceDTOV1.TENANT,
-                            VersionCredentialOwnerTypeDTOV1.TOOL,
+                            CredentialOwner.TOOL,
                             rulesByToolId.getOrDefault(tool.getId(), List.of()))));
         }
         if (agent.getGlobalTools() != null) {
-            agent.getGlobalTools().stream().filter(Objects::nonNull)
+            agent.getGlobalTools().stream().filter(Objects::nonNull).filter(AgentConfigurationVersionMapper::isMcpTool)
                     .forEach(tool -> candidates.add(new ToolServerSource(tool, VersionComponentSourceDTOV1.GLOBAL,
-                            VersionCredentialOwnerTypeDTOV1.GLOBAL_TOOL,
+                            CredentialOwner.GLOBAL_TOOL,
                             rulesByGlobalToolId.getOrDefault(tool.getId(), List.of()))));
         }
         // Canonical order first: both the published order and the reported duplicate (if several servers have
@@ -270,12 +249,15 @@ public class AgentConfigurationVersionMapper {
         candidates.sort(SERVER_ORDER);
         candidates.forEach(candidate -> rejectDuplicateRules(agent, candidate.tool(), candidate.rules()));
         return candidates.stream()
-                .map(candidate -> toolServer(candidate, stored, credentials, legacyAllowAll))
+                .map(this::toolServer)
                 .toList();
     }
 
-    private VersionToolServerDTOV1 toolServer(ToolServerSource source, StoredPolicyValues stored,
-            List<VersionCredentialReferenceDTOV1> credentials, boolean legacyAllowAll) {
+    private static boolean isMcpTool(AbstractTool tool) {
+        return tool.getType() == ToolType.MCP;
+    }
+
+    private VersionToolServerDTOV1 toolServer(ToolServerSource source) {
         var tool = source.tool();
         var rules = source.rules();
 
@@ -287,45 +269,34 @@ public class AgentConfigurationVersionMapper {
         dto.setUrl(tool.getUrl());
         dto.setSource(source.source());
         dto.setAuthMode(tool.getAuthMode() != null ? tool.getAuthMode().name() : null);
-        dto.setCredentialRef(credentialRef(source.ownerType(), tool.getId(), tool.getAuthMode(), tool.getApiKey(),
-                credentials));
+        dto.setCredentialRef(credentialRef(source.ownerType(), tool.getId(), tool.getAuthMode(), tool.getApiKey()));
 
-        var policy = stored.hasExecutionPolicy(tool.getId())
-                ? PolicyNormalizer.executionPolicy(stored.executionPolicy(tool.getId()))
-                : PolicyNormalizer.executionPolicy(tool.getExecutionPolicy());
-        dto.setExecutionPolicy(executionPolicy(policy.effective()));
-        var defaulted = policy.normalization() == PolicyNormalizer.Normalization.MISSING_VALUE_DEFAULTED;
-        dto.setExecutionPolicyProvenance(provenance(
-                defaulted ? VersionPolicySourceDTOV1.SYSTEM_DEFAULT : VersionPolicySourceDTOV1.TOOL_EXECUTION_POLICY,
-                defaulted ? null : tool.getId(), policy));
+        var executionPolicyValue = tool.getExecutionPolicy();
+        var executionPolicy = PolicyNormalizer.executionPolicy(executionPolicyValue);
+        var executionPolicySource = executionPolicyValue == null ? VersionPolicySourceDTOV1.SYSTEM_DEFAULT
+                : VersionPolicySourceDTOV1.TOOL_EXECUTION_POLICY;
 
         dto.setToolRules(rules.stream()
-                .map(rule -> toolRule(rule, stored, policy.effective()))
+                .map(rule -> toolRule(rule, executionPolicy, executionPolicySource))
                 .sorted(comparing(VersionToolRuleDTOV1::getToolName, STRING_ORDER))
                 .toList());
-        unlistedToolPermission(dto, policy.effective(), !rules.isEmpty(), legacyAllowAll);
+        var unlisted = unlistedToolPermission(executionPolicy, executionPolicySource, !rules.isEmpty());
+        dto.setUnlistedToolPermission(unlisted.permission());
+        dto.setUnlistedToolPermissionSource(unlisted.source());
         return dto;
     }
 
     /**
-     * Mirrors the tool filter of onecx-ai-provider-runtime: when rules exist they form an allow-list and tools
-     * without a rule are denied; without rules all tools are allowed (legacy allow-all) unless disabled.
+     * Mirrors runtime behaviour: when rules exist they form an allow-list and tools without a rule are denied.
+     * Without rules, tools are allowed and combined with the execution policy.
      */
-    private void unlistedToolPermission(VersionToolServerDTOV1 dto, ExecutionPolicy executionPolicy, boolean hasRules,
-            boolean legacyAllowAll) {
-        var provenance = new VersionPolicyProvenanceDTOV1();
-        provenance.setNormalization(VersionPolicyNormalizationDTOV1.NONE);
+    private PermissionDecision unlistedToolPermission(ExecutionPolicy executionPolicy,
+            VersionPolicySourceDTOV1 executionPolicySource, boolean hasRules) {
         if (hasRules) {
-            dto.setUnlistedToolPermission(VersionToolPermissionDTOV1.DENY);
-            provenance.setSource(VersionPolicySourceDTOV1.ALLOW_LIST_DEFAULT);
-        } else if (legacyAllowAll) {
-            dto.setUnlistedToolPermission(effectivePermission(ToolPermission.ALWAYS_ALLOW, executionPolicy));
-            provenance.setSource(VersionPolicySourceDTOV1.LEGACY_ALLOW_ALL);
-        } else {
-            dto.setUnlistedToolPermission(VersionToolPermissionDTOV1.DENY);
-            provenance.setSource(VersionPolicySourceDTOV1.SYSTEM_DEFAULT);
+            return new PermissionDecision(VersionToolPermissionDTOV1.DENY, VersionPolicySourceDTOV1.SYSTEM_DEFAULT);
         }
-        dto.setUnlistedToolPermissionProvenance(provenance);
+        return new PermissionDecision(effectivePermission(ToolPermission.ALWAYS_ALLOW, executionPolicy),
+                executionPolicySource);
     }
 
     /**
@@ -372,33 +343,25 @@ public class AgentConfigurationVersionMapper {
                 });
     }
 
-    private VersionToolRuleDTOV1 toolRule(AgentMcpToolRule rule, StoredPolicyValues stored,
-            ExecutionPolicy executionPolicy) {
-        var permission = stored.hasToolPermission(rule.getId())
-                ? PolicyNormalizer.toolPermission(stored.toolPermission(rule.getId()))
-                : PolicyNormalizer.toolPermission(rule.getAllowed());
+    private VersionToolRuleDTOV1 toolRule(AgentMcpToolRule rule, ExecutionPolicy executionPolicy,
+            VersionPolicySourceDTOV1 executionPolicySource) {
+        var storedPermission = rule.getAllowed();
+        var permission = PolicyNormalizer.toolPermission(storedPermission);
+        var source = storedPermission == null ? VersionPolicySourceDTOV1.SYSTEM_DEFAULT
+                : VersionPolicySourceDTOV1.AGENT_TOOL_RULE;
+
+        var resolved = toolPermission(permission);
+        if (permission == ToolPermission.ALWAYS_ALLOW && executionPolicy != ExecutionPolicy.ALWAYS_ALLOW) {
+            resolved = VersionToolPermissionDTOV1.ALWAYS_ASK;
+            source = executionPolicySource;
+        }
+
         var dto = new VersionToolRuleDTOV1();
         dto.setToolName(rule.getToolName());
         dto.setDescription(rule.getToolDescription());
-        dto.setPermission(toolPermission(permission.effective()));
-        dto.setEffectivePermission(effectivePermission(permission.effective(), executionPolicy));
-        dto.setProvenance(provenance(VersionPolicySourceDTOV1.AGENT_TOOL_RULE, rule.getId(), permission));
+        dto.setPermission(resolved);
+        dto.setPolicySource(source);
         return dto;
-    }
-
-    private VersionPolicyProvenanceDTOV1 provenance(VersionPolicySourceDTOV1 source, String sourceId,
-            PolicyNormalizer.Result<?> result) {
-        var dto = new VersionPolicyProvenanceDTOV1();
-        dto.setSource(source);
-        dto.setSourceId(sourceId);
-        dto.setNormalization(VersionPolicyNormalizationDTOV1.valueOf(result.normalization().name()));
-        dto.setStoredValue(result.storedValue());
-        return dto;
-    }
-
-    private VersionExecutionPolicyDTOV1 executionPolicy(ExecutionPolicy policy) {
-        return policy == ExecutionPolicy.ALWAYS_ALLOW ? VersionExecutionPolicyDTOV1.ALWAYS_ALLOW
-                : VersionExecutionPolicyDTOV1.ALWAYS_ASK;
     }
 
     private VersionToolPermissionDTOV1 toolPermission(ToolPermission permission) {
@@ -411,56 +374,23 @@ public class AgentConfigurationVersionMapper {
         return VersionToolPermissionDTOV1.DENY;
     }
 
-    /**
-     * Registers a credential reference and returns its id. The secret itself is never part of the version payload.
-     */
-    private String credentialRef(VersionCredentialOwnerTypeDTOV1 ownerType, String ownerId, AuthMode authMode,
-            String secret, List<VersionCredentialReferenceDTOV1> credentials) {
+    private String credentialRef(CredentialOwner ownerType, String ownerId, AuthMode authMode,
+            String secret) {
         var hasSecret = secret != null && !secret.isBlank();
-        VersionCredentialKindDTOV1 kind;
+        String suffix;
         if (authMode == AuthMode.OAUTH) {
-            kind = VersionCredentialKindDTOV1.PRINCIPAL_TOKEN;
+            suffix = "/principal-token";
         } else if (authMode == AuthMode.API_KEY || hasSecret) {
-            kind = VersionCredentialKindDTOV1.STORED_SECRET;
+            suffix = "/api-key";
         } else {
             return null;
         }
-        var ref = CREDENTIAL_REF_PREFIX + ownerType.name().toLowerCase(Locale.ROOT).replace('_', '-') + "/" + ownerId
-                + (kind == VersionCredentialKindDTOV1.PRINCIPAL_TOKEN ? "/principal-token" : "/api-key");
-        var dto = new VersionCredentialReferenceDTOV1();
-        dto.setRef(ref);
-        dto.setOwnerType(ownerType);
-        dto.setOwnerId(ownerId);
-        dto.setAuthMode(authMode != null ? authMode.name() : null);
-        dto.setKind(kind);
-        dto.setConfigured(kind == VersionCredentialKindDTOV1.PRINCIPAL_TOKEN || hasSecret);
-        credentials.add(dto);
-        return ref;
+        return CREDENTIAL_REF_PREFIX + ownerType.pathSegment + "/" + ownerId + suffix;
     }
 
-    private VersionCompatibilityDTOV1 compatibility(AgentConfigurationVersionDTOV1 snapshot) {
-        var capabilities = new TreeSet<String>();
-        if (Boolean.TRUE.equals(snapshot.getAgent().getA2aEnabled())) {
-            capabilities.add(CAPABILITY_A2A);
-        }
-        if (Boolean.TRUE.equals(snapshot.getVoice().getEnabled())) {
-            capabilities.add(CAPABILITY_VOICE);
-        }
-        if (!snapshot.getMcpServers().isEmpty()) {
-            capabilities.add(CAPABILITY_MCP);
-        }
-        if (snapshot.getMcpServers().stream().anyMatch(s -> !s.getToolRules().isEmpty())) {
-            capabilities.add(CAPABILITY_MCP_TOOL_RULES);
-        }
-        if (snapshot.getCredentials().stream()
-                .anyMatch(c -> c.getKind() == VersionCredentialKindDTOV1.PRINCIPAL_TOKEN)) {
-            capabilities.add(CAPABILITY_PRINCIPAL_TOKEN);
-        }
+    private VersionCompatibilityDTOV1 compatibility() {
         var dto = new VersionCompatibilityDTOV1();
         dto.setSchemaVersion(SCHEMA_VERSION);
-        dto.setHashAlgorithm(CanonicalVersionHasher.HASH_ALGORITHM);
-        dto.setCanonicalization(CanonicalVersionHasher.CANONICALIZATION);
-        dto.setRequiredCapabilities(List.copyOf(capabilities));
         return dto;
     }
 }

@@ -1,5 +1,6 @@
 
 include::onecx-ai-provider-svc-attributes.adoc[opts=optional]
+include::onecx-ai-provider-svc-runtime-contract.adoc[opts=optional]
 
 {docker-registry}[Link to Docker registry]
 

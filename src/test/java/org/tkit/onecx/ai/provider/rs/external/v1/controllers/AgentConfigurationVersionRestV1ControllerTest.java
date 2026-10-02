@@ -9,6 +9,7 @@ import static org.assertj.core.groups.Tuple.tuple;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import org.tkit.onecx.ai.provider.rs.external.v1.mappers.AgentConfigurationVersionMapper;
 import org.tkit.onecx.ai.provider.test.AbstractTest;
 import org.tkit.quarkus.security.test.GenerateKeycloakClient;
 import org.tkit.quarkus.test.WithDBData;
@@ -17,8 +18,7 @@ import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.AgentConfigurationVer
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.ProblemDetailParamDTOV1;
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.ProblemDetailResponseDTOV1;
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionComponentSourceDTOV1;
-import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionExecutionPolicyDTOV1;
-import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionPolicyNormalizationDTOV1;
+import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionPolicySourceDTOV1;
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionSkillDTOV1;
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionToolPermissionDTOV1;
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionToolRuleDTOV1;
@@ -61,57 +61,46 @@ class AgentConfigurationVersionRestV1ControllerTest extends AbstractTest {
                 .containsExactly("a-skill", "b-skill", "c-global-skill");
         assertThat(versionPayload.getMcpServers()).extracting(VersionToolServerDTOV1::getName)
                 .containsExactly("global-mcp", "legacy-mcp", "unknown-mcp");
-        assertThat(versionPayload.getMcpServers().get(0).getSource()).isEqualTo(VersionComponentSourceDTOV1.GLOBAL);
-        assertThat(versionPayload.getCompatibility().getRequiredCapabilities())
-                .containsExactly("mcp", "mcp-tool-rules", "principal-token-propagation", "voice");
+        assertThat(versionPayload.getMcpServers().getFirst().getSource()).isEqualTo(VersionComponentSourceDTOV1.GLOBAL);
+        assertThat(versionPayload.getCompatibility().getSchemaVersion())
+                .isEqualTo(AgentConfigurationVersionMapper.SCHEMA_VERSION);
     }
 
     @Test
-    void getVersion_normalizesLegacyStoredPolicies() {
+    void getVersion_appliesResolvedPermissionAndPolicySource() {
         var versionPayload = getVersion("snap-agent-1");
 
         var legacy = server(versionPayload, "snap-tool-legacy");
-        assertThat(legacy.getExecutionPolicy()).isEqualTo(VersionExecutionPolicyDTOV1.ALWAYS_ALLOW);
-        assertThat(legacy.getExecutionPolicyProvenance().getNormalization())
-                .isEqualTo(VersionPolicyNormalizationDTOV1.LEGACY_ALIAS);
-        assertThat(legacy.getExecutionPolicyProvenance().getStoredValue()).isEqualTo("NEVER_ASK");
         assertThat(legacy.getToolRules()).extracting(VersionToolRuleDTOV1::getToolName)
                 .containsExactly("deleteItem", "readItem");
 
         var read = rule(legacy, "readItem");
         assertThat(read.getPermission()).isEqualTo(VersionToolPermissionDTOV1.ALWAYS_ALLOW);
-        assertThat(read.getEffectivePermission()).isEqualTo(VersionToolPermissionDTOV1.ALWAYS_ALLOW);
-        assertThat(legacy.getUnlistedToolPermission()).isEqualTo(VersionToolPermissionDTOV1.DENY);
-        assertThat(read.getProvenance().getSourceId()).isEqualTo("snap-rule-legacy");
-        assertThat(read.getProvenance().getNormalization()).isEqualTo(VersionPolicyNormalizationDTOV1.LEGACY_ALIAS);
-        assertThat(read.getProvenance().getStoredValue()).isEqualTo("ALLOW");
+        assertThat(read.getPolicySource()).isEqualTo(VersionPolicySourceDTOV1.AGENT_TOOL_RULE);
 
         var delete = rule(legacy, "deleteItem");
         assertThat(delete.getPermission()).isEqualTo(VersionToolPermissionDTOV1.DENY);
-        assertThat(delete.getProvenance().getNormalization()).isEqualTo(VersionPolicyNormalizationDTOV1.NONE);
+        assertThat(delete.getPolicySource()).isEqualTo(VersionPolicySourceDTOV1.AGENT_TOOL_RULE);
+
+        assertThat(legacy.getUnlistedToolPermission()).isEqualTo(VersionToolPermissionDTOV1.DENY);
+        assertThat(legacy.getUnlistedToolPermissionSource()).isEqualTo(VersionPolicySourceDTOV1.SYSTEM_DEFAULT);
 
         var global = rule(server(versionPayload, "snap-gtool-1"), "globalRead");
         assertThat(global.getPermission()).isEqualTo(VersionToolPermissionDTOV1.ALWAYS_ALLOW);
-        assertThat(global.getProvenance().getStoredValue()).isEqualTo("NEVER_ASK");
+        assertThat(global.getPolicySource()).isEqualTo(VersionPolicySourceDTOV1.AGENT_TOOL_RULE);
     }
 
     @Test
-    void getVersion_deniesUnknownStoredPolicies() {
+    void getVersion_unknownStoredValues_areAlreadyCanonicalizedByConverters() {
         var versionPayload = getVersion("snap-agent-1");
 
         var unknown = server(versionPayload, "snap-tool-unknown");
-        assertThat(unknown.getExecutionPolicy()).isEqualTo(VersionExecutionPolicyDTOV1.ALWAYS_ASK);
-        assertThat(unknown.getExecutionPolicyProvenance().getNormalization())
-                .isEqualTo(VersionPolicyNormalizationDTOV1.UNKNOWN_VALUE_DENIED);
-        assertThat(unknown.getExecutionPolicyProvenance().getStoredValue()).isEqualTo("AUTO_APPROVE");
-
         var write = rule(unknown, "writeItem");
+
         assertThat(write.getPermission()).isEqualTo(VersionToolPermissionDTOV1.DENY);
-        assertThat(write.getEffectivePermission()).isEqualTo(VersionToolPermissionDTOV1.DENY);
+        assertThat(write.getPolicySource()).isEqualTo(VersionPolicySourceDTOV1.AGENT_TOOL_RULE);
         assertThat(unknown.getUnlistedToolPermission()).isEqualTo(VersionToolPermissionDTOV1.DENY);
-        assertThat(write.getProvenance().getNormalization())
-                .isEqualTo(VersionPolicyNormalizationDTOV1.UNKNOWN_VALUE_DENIED);
-        assertThat(write.getProvenance().getStoredValue()).isEqualTo("SOMETIMES");
+        assertThat(unknown.getUnlistedToolPermissionSource()).isEqualTo(VersionPolicySourceDTOV1.SYSTEM_DEFAULT);
     }
 
     @Test

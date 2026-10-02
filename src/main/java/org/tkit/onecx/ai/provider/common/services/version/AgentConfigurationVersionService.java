@@ -5,7 +5,6 @@ import java.util.Optional;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import org.tkit.onecx.ai.provider.config.AiProviderConfig;
 import org.tkit.onecx.ai.provider.domain.daos.AgentDAO;
 import org.tkit.onecx.ai.provider.domain.daos.AgentMcpToolRuleDAO;
 import org.tkit.onecx.ai.provider.rs.external.v1.mappers.AgentConfigurationVersionMapper;
@@ -28,9 +27,6 @@ public class AgentConfigurationVersionService {
     @Inject
     AgentConfigurationVersionMapper mapper;
 
-    @Inject
-    AiProviderConfig config;
-
     /**
      * @return the current configuration version payload of the agent or empty if the agent does not exist
      * @throws VersionGenerationException if the configuration is invalid
@@ -42,10 +38,6 @@ public class AgentConfigurationVersionService {
         }
         var rules = agentMcpToolRuleDAO.findByAgentId(agent.getId());
 
-        var executionPolicies = agentMcpToolRuleDAO.findStoredExecutionPoliciesByAgentId(agent.getId());
-        var stored = new StoredPolicyValues(agentMcpToolRuleDAO.findStoredToolPermissionsByAgentId(agent.getId()),
-                executionPolicies);
-
         var context = ApplicationContext.get();
         String tenantId = agent.getTenantId();
         String principal = null;
@@ -53,7 +45,6 @@ public class AgentConfigurationVersionService {
             tenantId = tenantId != null ? tenantId : context.getTenantId();
             principal = context.getPrincipal();
         }
-        return Optional.of(mapper.build(agent, rules, stored, tenantId, principal,
-                config.version().legacyAllowAll()));
+        return Optional.of(mapper.build(agent, rules, tenantId, principal));
     }
 }

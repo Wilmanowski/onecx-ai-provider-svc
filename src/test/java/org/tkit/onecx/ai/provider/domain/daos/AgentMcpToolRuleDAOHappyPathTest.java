@@ -38,13 +38,6 @@ class AgentMcpToolRuleDAOHappyPathTest extends AbstractTest {
     }
 
     @Test
-    void findStoredExecutionPoliciesByAgentId_returnsRawValuesForAssignedTools() {
-        var policies = dao.findStoredExecutionPoliciesByAgentId("agent-22-222");
-        assertThat(policies).containsEntry("tool-22-222", "NEVER_ASK")
-                .containsEntry("gtool-11-111", "ALWAYS_ASK");
-    }
-
-    @Test
     void deleteByAgentId_deletesOnlyRulesOfThatAgent() {
         dao.deleteByAgentId("agent-11-111");
 
