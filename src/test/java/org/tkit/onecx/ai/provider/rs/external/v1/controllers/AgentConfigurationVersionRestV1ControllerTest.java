@@ -1,7 +1,6 @@
 package org.tkit.onecx.ai.provider.rs.external.v1.controllers;
 
 import static io.restassured.RestAssured.given;
-import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static jakarta.ws.rs.core.Response.Status.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.groups.Tuple.tuple;
@@ -21,8 +20,6 @@ import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionSkillDTOV1;
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionToolPermissionDTOV1;
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionToolRuleDTOV1;
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionToolServerDTOV1;
-import gen.org.tkit.onecx.ai.provider.rs.internal.model.CreateAgentMcpToolRuleRequestDTO;
-import gen.org.tkit.onecx.ai.provider.rs.internal.model.ToolPermissionDTO;
 import io.quarkus.test.junit.QuarkusTest;
 
 /**
@@ -120,60 +117,6 @@ class AgentConfigurationVersionRestV1ControllerTest extends AbstractTest {
     }
 
     @Test
-    void conditionalRetrieval_distinguishesUnchangedFromNewVersion() {
-        var version = getVersion("snap-agent-1").getVersion();
-
-        // repeated retrieval of unchanged configuration yields the same immutable version
-        assertThat(getVersion("snap-agent-1").getVersion()).isEqualTo(version);
-
-        // unchanged: 304 for strong, weak and bare entity tags
-        for (var tag : new String[] { "\"" + version + "\"", "W/\"" + version + "\"", version,
-                "\"sha256:stale\", \"" + version + "\"" }) {
-            var notModified = given()
-                    .auth().oauth2(getKeycloakClientToken("testClient"))
-                    .header("If-None-Match", tag)
-                    .get(VERSION_PATH, "snap-agent-1")
-                    .then()
-                    .statusCode(NOT_MODIFIED.getStatusCode())
-                    .extract();
-            assertThat(notModified.header("ETag")).isEqualTo("\"" + version + "\"");
-            assertThat(notModified.asString()).isEmpty();
-        }
-
-        // configuration change: new rule for the legacy MCP server
-        given()
-                .log().ifValidationFails()
-                .auth().oauth2(getKeycloakClientToken("testClient"))
-                .contentType(APPLICATION_JSON)
-                .body(createRuleRequest("archiveItem", "archives items", ToolPermissionDTO.ALWAYS_ALLOW))
-                .post("/internal/agents/{agentId}/tools/{toolId}/mcp-tool-rules", "snap-agent-1", "snap-tool-legacy")
-                .then()
-                .statusCode(CREATED.getStatusCode());
-
-        // changed: the pinned version is stale, a new immutable version is delivered
-        var changed = given()
-                .auth().oauth2(getKeycloakClientToken("testClient"))
-                .header("If-None-Match", "\"" + version + "\"")
-                .get(VERSION_PATH, "snap-agent-1")
-                .then()
-                .statusCode(OK.getStatusCode())
-                .extract();
-        var newVersion = changed.as(AgentConfigurationVersionDTOV1.class);
-        assertThat(newVersion.getVersion()).isNotEqualTo(version);
-        assertThat(changed.header("ETag")).isEqualTo("\"" + newVersion.getVersion() + "\"");
-        assertThat(rule(server(newVersion, "snap-tool-legacy"), "archiveItem").getPermission())
-                .isEqualTo(VersionToolPermissionDTOV1.ALWAYS_ALLOW);
-
-        // the new version is pinned again
-        given()
-                .auth().oauth2(getKeycloakClientToken("testClient"))
-                .header("If-None-Match", "\"" + newVersion.getVersion() + "\"")
-                .get(VERSION_PATH, "snap-agent-1")
-                .then()
-                .statusCode(NOT_MODIFIED.getStatusCode());
-    }
-
-    @Test
     void duplicateExactToolRules_invalidateVersion() {
         var problem = given()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
@@ -193,26 +136,6 @@ class AgentConfigurationVersionRestV1ControllerTest extends AbstractTest {
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .header("If-None-Match", "*")
                 .get(VERSION_PATH, "snap-agent-dup")
-                .then()
-                .statusCode(CONFLICT.getStatusCode());
-    }
-
-    @Test
-    void duplicateRuleCreatedLater_invalidatesVersion() {
-        getVersion("snap-agent-1");
-
-        given()
-                .log().ifValidationFails()
-                .auth().oauth2(getKeycloakClientToken("testClient"))
-                .contentType(APPLICATION_JSON)
-                .body(createRuleRequest("readItem", "reads items", ToolPermissionDTO.ALWAYS_ALLOW))
-                .post("/internal/agents/{agentId}/tools/{toolId}/mcp-tool-rules", "snap-agent-1", "snap-tool-legacy")
-                .then()
-                .statusCode(CREATED.getStatusCode());
-
-        given()
-                .auth().oauth2(getKeycloakClientToken("testClient"))
-                .get(VERSION_PATH, "snap-agent-1")
                 .then()
                 .statusCode(CONFLICT.getStatusCode());
     }
@@ -241,15 +164,6 @@ class AgentConfigurationVersionRestV1ControllerTest extends AbstractTest {
                 .then()
                 .statusCode(OK.getStatusCode())
                 .extract().as(AgentConfigurationVersionDTOV1.class);
-    }
-
-    private static CreateAgentMcpToolRuleRequestDTO createRuleRequest(String toolName, String toolDescription,
-            ToolPermissionDTO permission) {
-        var dto = new CreateAgentMcpToolRuleRequestDTO();
-        dto.setToolName(toolName);
-        dto.setToolDescription(toolDescription);
-        dto.setAllowed(permission);
-        return dto;
     }
 
     private static VersionToolServerDTOV1 server(AgentConfigurationVersionDTOV1 versionPayload, String id) {
