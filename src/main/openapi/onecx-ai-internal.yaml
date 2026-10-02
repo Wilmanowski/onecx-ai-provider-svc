@@ -366,24 +366,25 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateAgentMcpToolRuleRequest'
+              type: array
+              items:
+                $ref: '#/components/schemas/CreateAgentMcpToolRuleRequest'
       responses:
         "201":
           description: Rule created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AgentMcpToolRule'
+                $ref: '#/components/schemas/AgentMcpToolRuleList'
         "404":
           description: Agent or Tool not found
 
-  /internal/agents/{agentId}/tools/{toolId}/mcp-tool-rules/{ruleId}:
     put:
       security:
         - oauth2: [ ocx-ai:all, ocx-ai:write ]
       tags:
         - agentInternal
-      description: Update an MCP tool rule for an Agent and Tool
+      description: Update MCP tool rules for an Agent and Tool
       operationId: updateAgentMcpToolRule
       parameters:
         - name: agentId
@@ -396,26 +397,25 @@ paths:
           required: true
           schema:
             type: string
-        - name: ruleId
-          in: path
-          required: true
-          schema:
-            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateAgentMcpToolRuleRequest'
+              type: array
+              items:
+                $ref: '#/components/schemas/UpdateAgentMcpToolRuleRequest'
       responses:
         "200":
-          description: Rule updated
+          description: Rules updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AgentMcpToolRule'
+                $ref: '#/components/schemas/AgentMcpToolRuleList'
         "404":
           description: Rule not found
+
+  /internal/agents/{agentId}/tools/{toolId}/mcp-tool-rules/{ruleId}:
     delete:
       security:
         - oauth2: [ ocx-ai:all, ocx-ai:delete ]
@@ -2258,8 +2258,11 @@ components:
     UpdateAgentMcpToolRuleRequest:
       type: object
       required:
+        - id
         - modificationCount
       properties:
+        id:
+          type: string
         modificationCount:
           type: integer
         allowed:

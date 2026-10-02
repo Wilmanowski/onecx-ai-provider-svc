@@ -24,6 +24,7 @@ public interface AgentMapper {
     @Mapping(target = "removeStreamItem", ignore = true)
     AgentPageResultDTOV1 mapPage(PageResult<Agent> result);
 
+    @Mapping(target = "voiceEnabled", defaultExpression = "java(Boolean.TRUE.equals(agent.getVoiceEnabled()))")
     AgentAbstractDTOV1 mapToAbstract(Agent agent);
 
     Filter map(AgentFilterDTOV1 filterDTOV1);

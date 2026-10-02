@@ -615,21 +615,22 @@ class AgentRestControllerTest extends AbstractTest {
         var created = given()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .contentType(APPLICATION_JSON)
-                .body(create)
+                .body(List.of(create))
                 .pathParam("agentId", "agent-11-111")
                 .pathParam("toolId", "tool-11-111")
                 .post("/{agentId}/tools/{toolId}/mcp-tool-rules")
                 .then().statusCode(CREATED.getStatusCode())
-                .extract().as(AgentMcpToolRuleDTO.class);
+                .extract().as(AgentMcpToolRuleListDTO.class);
 
-        assertThat(created.getId()).isNotNull();
-        assertThat(created.getAllowed()).isEqualTo(ToolPermissionDTO.ALWAYS_ALLOW);
+        var createdRule = created.getRules().get(0);
+        assertThat(createdRule.getId()).isNotNull();
+        assertThat(createdRule.getAllowed()).isEqualTo(ToolPermissionDTO.ALWAYS_ALLOW);
 
         // agent not found
         given()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .contentType(APPLICATION_JSON)
-                .body(create)
+                .body(List.of(create))
                 .pathParam("agentId", "agent-not-exists")
                 .pathParam("toolId", "tool-11-111")
                 .post("/{agentId}/tools/{toolId}/mcp-tool-rules")
@@ -639,7 +640,7 @@ class AgentRestControllerTest extends AbstractTest {
         given()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .contentType(APPLICATION_JSON)
-                .body(create)
+                .body(List.of(create))
                 .pathParam("agentId", "agent-11-111")
                 .pathParam("toolId", "tool-not-exists")
                 .post("/{agentId}/tools/{toolId}/mcp-tool-rules")
@@ -647,44 +648,42 @@ class AgentRestControllerTest extends AbstractTest {
 
         // update
         var update = new UpdateAgentMcpToolRuleRequestDTO();
+        update.setId("rule-11-111");
         update.setModificationCount(0);
         update.setAllowed(ToolPermissionDTO.DENY);
 
         var updated = given()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .contentType(APPLICATION_JSON)
-                .body(update)
+                .body(List.of(update))
                 .pathParam("agentId", "agent-11-111")
                 .pathParam("toolId", "tool-11-111")
-                .pathParam("ruleId", "rule-11-111")
-                .put("/{agentId}/tools/{toolId}/mcp-tool-rules/{ruleId}")
+                .put("/{agentId}/tools/{toolId}/mcp-tool-rules")
                 .then().statusCode(OK.getStatusCode())
-                .extract().as(AgentMcpToolRuleDTO.class);
+                .extract().as(AgentMcpToolRuleListDTO.class);
 
-        assertThat(updated.getAllowed()).isEqualTo(ToolPermissionDTO.DENY);
+        assertThat(updated.getRules().get(0).getAllowed()).isEqualTo(ToolPermissionDTO.DENY);
         // tool name must not change on update
-        assertThat(updated.getToolName()).isEqualTo("getProposal");
+        assertThat(updated.getRules().get(0).getToolName()).isEqualTo("getProposal");
 
         // rule not found
         given()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .contentType(APPLICATION_JSON)
-                .body(update)
+                .body(List.of(update.id("rule-not-exists")))
                 .pathParam("agentId", "agent-11-111")
                 .pathParam("toolId", "tool-11-111")
-                .pathParam("ruleId", "rule-not-exists")
-                .put("/{agentId}/tools/{toolId}/mcp-tool-rules/{ruleId}")
+                .put("/{agentId}/tools/{toolId}/mcp-tool-rules")
                 .then().statusCode(NOT_FOUND.getStatusCode());
 
         // rule belongs to another agent
         given()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .contentType(APPLICATION_JSON)
-                .body(update)
+                .body(List.of(update.id("rule-11-111")))
                 .pathParam("agentId", "agent-22-222")
                 .pathParam("toolId", "tool-11-111")
-                .pathParam("ruleId", "rule-11-111")
-                .put("/{agentId}/tools/{toolId}/mcp-tool-rules/{ruleId}")
+                .put("/{agentId}/tools/{toolId}/mcp-tool-rules")
                 .then().statusCode(NOT_FOUND.getStatusCode());
 
         // delete
@@ -717,43 +716,43 @@ class AgentRestControllerTest extends AbstractTest {
         var created = given()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .contentType(APPLICATION_JSON)
-                .body(create)
+                .body(List.of(create))
                 .pathParam("agentId", "agent-22-222")
                 .pathParam("toolId", "gtool-11-111")
                 .post("/{agentId}/tools/{toolId}/mcp-tool-rules")
                 .then().statusCode(CREATED.getStatusCode())
-                .extract().as(AgentMcpToolRuleDTO.class);
+                .extract().as(AgentMcpToolRuleListDTO.class);
 
-        assertThat(created.getId()).isNotNull();
-        assertThat(created.getToolName()).isEqualTo("globalWrite");
+        var createdRule = created.getRules().get(0);
+        assertThat(createdRule.getId()).isNotNull();
+        assertThat(createdRule.getToolName()).isEqualTo("globalWrite");
 
         // update the global tool rule — covers agentRuleBelongsToAgentAndTool globalTool branch
         var update = new UpdateAgentMcpToolRuleRequestDTO();
+        update.setId(createdRule.getId());
         update.setModificationCount(0);
         update.setAllowed(ToolPermissionDTO.ALLOW);
 
         var updated = given()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .contentType(APPLICATION_JSON)
-                .body(update)
+                .body(List.of(update))
                 .pathParam("agentId", "agent-22-222")
                 .pathParam("toolId", "gtool-11-111")
-                .pathParam("ruleId", created.getId())
-                .put("/{agentId}/tools/{toolId}/mcp-tool-rules/{ruleId}")
+                .put("/{agentId}/tools/{toolId}/mcp-tool-rules")
                 .then().statusCode(OK.getStatusCode())
-                .extract().as(AgentMcpToolRuleDTO.class);
+                .extract().as(AgentMcpToolRuleListDTO.class);
 
-        assertThat(updated.getAllowed()).isEqualTo(ToolPermissionDTO.ALWAYS_ALLOW);
+        assertThat(updated.getRules().get(0).getAllowed()).isEqualTo(ToolPermissionDTO.ALWAYS_ALLOW);
 
         // update with wrong agent — rule does not belong to this agent
         given()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .contentType(APPLICATION_JSON)
-                .body(update)
+                .body(List.of(update))
                 .pathParam("agentId", "agent-11-111")
                 .pathParam("toolId", "gtool-11-111")
-                .pathParam("ruleId", created.getId())
-                .put("/{agentId}/tools/{toolId}/mcp-tool-rules/{ruleId}")
+                .put("/{agentId}/tools/{toolId}/mcp-tool-rules")
                 .then().statusCode(NOT_FOUND.getStatusCode());
 
         // delete the global tool rule
@@ -761,9 +760,44 @@ class AgentRestControllerTest extends AbstractTest {
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .pathParam("agentId", "agent-22-222")
                 .pathParam("toolId", "gtool-11-111")
-                .pathParam("ruleId", created.getId())
+                .pathParam("ruleId", createdRule.getId())
                 .delete("/{agentId}/tools/{toolId}/mcp-tool-rules/{ruleId}")
                 .then().statusCode(NO_CONTENT.getStatusCode());
+    }
+
+    @Test
+    void updateAgentMcpToolRule_validatesWholeBatchBeforeMutation() {
+        var validUpdate = new UpdateAgentMcpToolRuleRequestDTO()
+                .id("rule-11-111")
+                .modificationCount(0)
+                .allowed(ToolPermissionDTO.DENY);
+        var invalidUpdate = new UpdateAgentMcpToolRuleRequestDTO()
+                .id("rule-not-exists")
+                .modificationCount(0)
+                .allowed(ToolPermissionDTO.DENY);
+
+        given()
+                .auth().oauth2(getKeycloakClientToken("testClient"))
+                .contentType(APPLICATION_JSON)
+                .body(List.of(validUpdate, invalidUpdate))
+                .pathParam("agentId", "agent-11-111")
+                .pathParam("toolId", "tool-11-111")
+                .put("/{agentId}/tools/{toolId}/mcp-tool-rules")
+                .then().statusCode(NOT_FOUND.getStatusCode());
+
+        var rules = given()
+                .auth().oauth2(getKeycloakClientToken("testClient"))
+                .pathParam("agentId", "agent-11-111")
+                .pathParam("toolId", "tool-11-111")
+                .get("/{agentId}/tools/{toolId}/mcp-tool-rules")
+                .then().statusCode(OK.getStatusCode())
+                .extract().as(AgentMcpToolRuleListDTO.class);
+
+        assertThat(rules.getRules())
+                .filteredOn(rule -> rule.getId().equals("rule-11-111"))
+                .singleElement()
+                .extracting(AgentMcpToolRuleDTO::getAllowed)
+                .isEqualTo(ToolPermissionDTO.ALWAYS_ALLOW);
     }
 
     @Test

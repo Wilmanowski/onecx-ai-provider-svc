@@ -7,6 +7,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
+import java.util.List;
+
 import jakarta.ws.rs.HttpMethod;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -181,7 +183,7 @@ class ToolRestControllerTest extends AbstractTest {
         given()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .contentType(APPLICATION_JSON)
-                .body(rule)
+                .body(List.of(rule))
                 .basePath("/internal/agents")
                 .pathParam("agentId", "agent-11-111")
                 .pathParam("toolId", createdTool.getId())
@@ -355,7 +357,7 @@ class ToolRestControllerTest extends AbstractTest {
         given()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .contentType(APPLICATION_JSON)
-                .body(ruleDto)
+                .body(List.of(ruleDto))
                 .basePath("/internal/agents")
                 .pathParam("agentId", "agent-11-111")
                 .pathParam("toolId", "tool-11-111")
@@ -365,7 +367,7 @@ class ToolRestControllerTest extends AbstractTest {
         given()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .contentType(APPLICATION_JSON)
-                .body(ruleDto)
+                .body(List.of(ruleDto))
                 .basePath("/internal/agents")
                 .pathParam("agentId", "agent-11-111")
                 .pathParam("toolId", "tool-11-111")
