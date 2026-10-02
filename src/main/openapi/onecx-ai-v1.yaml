@@ -79,7 +79,7 @@ paths:
         the same immutable content. The version is also returned as strong `ETag`. Clients pin a version for
         a session/turn and retrieve conditionally with `If-None-Match`: `304` means the pinned version is
         still current, `200` delivers a new immutable version. Raw credentials are never part of the payload,
-        only credential references.
+        only credential references
       operationId: getAgentConfigurationVersion
       parameters:
         - name: id
