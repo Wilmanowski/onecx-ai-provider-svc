@@ -6,8 +6,6 @@ import static jakarta.ws.rs.core.Response.Status.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.groups.Tuple.tuple;
 
-import java.util.Map;
-
 import org.junit.jupiter.api.Test;
 import org.tkit.onecx.ai.provider.rs.external.v1.mappers.AgentConfigurationVersionMapper;
 import org.tkit.onecx.ai.provider.test.AbstractTest;
@@ -23,6 +21,8 @@ import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionSkillDTOV1;
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionToolPermissionDTOV1;
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionToolRuleDTOV1;
 import gen.org.tkit.onecx.ai.provider.rs.external.v1.model.VersionToolServerDTOV1;
+import gen.org.tkit.onecx.ai.provider.rs.internal.model.CreateAgentMcpToolRuleRequestDTO;
+import gen.org.tkit.onecx.ai.provider.rs.internal.model.ToolPermissionDTO;
 import io.quarkus.test.junit.QuarkusTest;
 
 /**
@@ -142,9 +142,10 @@ class AgentConfigurationVersionRestV1ControllerTest extends AbstractTest {
 
         // configuration change: new rule for the legacy MCP server
         given()
+                .log().ifValidationFails()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .contentType(APPLICATION_JSON)
-                .body(Map.of("toolName", "archiveItem", "toolDescription", "archives items", "allowed", "DENY"))
+                .body(createRuleRequest("archiveItem", "archives items", ToolPermissionDTO.DENY))
                 .post("/internal/agents/{agentId}/tools/{toolId}/mcp-tool-rules", "snap-agent-1", "snap-tool-legacy")
                 .then()
                 .statusCode(CREATED.getStatusCode());
@@ -201,9 +202,10 @@ class AgentConfigurationVersionRestV1ControllerTest extends AbstractTest {
         getVersion("snap-agent-1");
 
         given()
+                .log().ifValidationFails()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .contentType(APPLICATION_JSON)
-                .body(Map.of("toolName", "readItem", "toolDescription", "reads items", "allowed", "DENY"))
+                .body(createRuleRequest("readItem", "reads items", ToolPermissionDTO.DENY))
                 .post("/internal/agents/{agentId}/tools/{toolId}/mcp-tool-rules", "snap-agent-1", "snap-tool-legacy")
                 .then()
                 .statusCode(CREATED.getStatusCode());
@@ -239,6 +241,15 @@ class AgentConfigurationVersionRestV1ControllerTest extends AbstractTest {
                 .then()
                 .statusCode(OK.getStatusCode())
                 .extract().as(AgentConfigurationVersionDTOV1.class);
+    }
+
+    private static CreateAgentMcpToolRuleRequestDTO createRuleRequest(String toolName, String toolDescription,
+            ToolPermissionDTO permission) {
+        var dto = new CreateAgentMcpToolRuleRequestDTO();
+        dto.setToolName(toolName);
+        dto.setToolDescription(toolDescription);
+        dto.setAllowed(permission);
+        return dto;
     }
 
     private static VersionToolServerDTOV1 server(AgentConfigurationVersionDTOV1 versionPayload, String id) {
