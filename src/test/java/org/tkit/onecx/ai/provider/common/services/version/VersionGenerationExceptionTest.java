@@ -4,9 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.LinkedHashMap;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
+import io.quarkus.test.junit.QuarkusTest;
+
+@QuarkusTest
 class VersionGenerationExceptionTest {
 
     @Test
@@ -30,7 +34,12 @@ class VersionGenerationExceptionTest {
         params.put("toolId", "mutated-value");
 
         assertThat(ex.getParams()).containsEntry("toolId", "tool-1");
-        assertThatThrownBy(() -> ex.getParams().put("x", "y"))
+        var frozenParams = ex.getParams();
+        assertThatThrownBy(() -> putEntry(frozenParams))
                 .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    private static void putEntry(Map<String, String> params) {
+        params.put("x", "y");
     }
 }

@@ -11,13 +11,16 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.tkit.onecx.ai.provider.domain.models.enums.ExecutionPolicy;
 import org.tkit.onecx.ai.provider.domain.models.enums.ToolPermission;
 
+import io.quarkus.test.junit.QuarkusTest;
+
+@QuarkusTest
 class PolicyNormalizerTest {
 
     @Test
     void constructor_isAccessibleByReflection() throws Exception {
         Constructor<PolicyNormalizer> constructor = PolicyNormalizer.class.getDeclaredConstructor();
         constructor.setAccessible(true);
-        assertThatNoException().isThrownBy(() -> constructor.newInstance());
+        assertThatNoException().isThrownBy(constructor::newInstance);
     }
 
     @ParameterizedTest
@@ -37,6 +40,11 @@ class PolicyNormalizerTest {
         assertThat(PolicyNormalizer.toolPermission(null)).isEqualTo(ToolPermission.ALWAYS_ASK);
     }
 
+    @Test
+    void toolPermission_default_isCanonicalizedToSafeAsk() {
+        assertThat(PolicyNormalizer.toolPermission(ToolPermission.DEFAULT)).isEqualTo(ToolPermission.ALWAYS_ASK);
+    }
+
     @ParameterizedTest
     @CsvSource({
             "ALWAYS_ASK, ALWAYS_ASK",
@@ -51,5 +59,10 @@ class PolicyNormalizerTest {
     @Test
     void executionPolicy_null_defaultsToSafeAsk() {
         assertThat(PolicyNormalizer.executionPolicy(null)).isEqualTo(ExecutionPolicy.ALWAYS_ASK);
+    }
+
+    @Test
+    void executionPolicy_default_isCanonicalizedToSafeAsk() {
+        assertThat(PolicyNormalizer.executionPolicy(ExecutionPolicy.DEFAULT)).isEqualTo(ExecutionPolicy.ALWAYS_ASK);
     }
 }

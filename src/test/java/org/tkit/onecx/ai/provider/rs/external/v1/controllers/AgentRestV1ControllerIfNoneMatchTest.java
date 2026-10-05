@@ -11,9 +11,12 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import io.quarkus.test.junit.QuarkusTest;
+
 /**
  * RFC 9110 {@code If-None-Match} evaluation of {@link AgentRestV1Controller#matches(String, String)}.
  */
+@QuarkusTest
 class AgentRestV1ControllerIfNoneMatchTest {
 
     private static final String VERSION = "sha256:0123456789abcdef";
@@ -58,7 +61,9 @@ class AgentRestV1ControllerIfNoneMatchTest {
                 // comma separated list, the matching entry is not the first one
                 Arguments.of("\"sha256:other\", W/\"" + VERSION + "\", \"sha256:third\""),
                 // weak wildcard
-                Arguments.of("W/*"));
+                Arguments.of("W/*"),
+                // quoted wildcard is unwrapped before matching
+                Arguments.of("\"*\""));
     }
 
     private static Stream<Arguments> nonMatchingHeaders() {
@@ -73,6 +78,8 @@ class AgentRestV1ControllerIfNoneMatchTest {
                 Arguments.of("\"sha256:0123456789\""),
                 // only opening quote, quotes are not stripped
                 Arguments.of("\"" + VERSION),
+                // only trailing quote, quotes are not stripped
+                Arguments.of(VERSION + "\""),
                 // too short to be an entity tag, quotes are not stripped
                 Arguments.of("\""),
                 // weak prefix leaves an empty tag behind

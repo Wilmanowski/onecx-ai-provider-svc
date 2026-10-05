@@ -53,10 +53,14 @@ public final class CanonicalVersionHasher {
      * @return the canonical JSON bytes of the hashed version content
      */
     public static byte[] canonicalBytes(Object versionPayload) {
-        Map<String, Object> content = MAPPER.convertValue(versionPayload, TREE);
+        return canonicalBytes(versionPayload, MAPPER);
+    }
+
+    static byte[] canonicalBytes(Object versionPayload, ObjectMapper mapper) {
+        Map<String, Object> content = mapper.convertValue(versionPayload, TREE);
         EXCLUDED_PROPERTIES.forEach(content::remove);
         try {
-            return MAPPER.writeValueAsBytes(content);
+            return mapper.writeValueAsBytes(content);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Version payload cannot be serialized to canonical JSON", e);
         }
@@ -66,11 +70,15 @@ public final class CanonicalVersionHasher {
      * @return content-addressed version {@code sha256:<hex>}
      */
     public static String version(Object versionPayload) {
+        return version(versionPayload, HASH_ALGORITHM);
+    }
+
+    static String version(Object versionPayload, String hashAlgorithm) {
         try {
-            var digest = MessageDigest.getInstance(HASH_ALGORITHM).digest(canonicalBytes(versionPayload));
+            var digest = MessageDigest.getInstance(hashAlgorithm).digest(canonicalBytes(versionPayload));
             return VERSION_PREFIX + HexFormat.of().formatHex(digest);
         } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(HASH_ALGORITHM + " not available", e);
+            throw new IllegalStateException(hashAlgorithm + " not available", e);
         }
     }
 }

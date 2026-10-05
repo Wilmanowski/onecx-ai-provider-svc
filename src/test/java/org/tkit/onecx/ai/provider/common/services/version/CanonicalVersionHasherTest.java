@@ -14,15 +14,20 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.POJONode;
 
+import io.quarkus.test.junit.QuarkusTest;
+
+@QuarkusTest
 class CanonicalVersionHasherTest {
 
     @Test
     void constructor_isAccessibleByReflection() throws Exception {
         Constructor<CanonicalVersionHasher> constructor = CanonicalVersionHasher.class.getDeclaredConstructor();
         constructor.setAccessible(true);
-        assertThatNoException().isThrownBy(() -> constructor.newInstance());
+        assertThatNoException().isThrownBy(constructor::newInstance);
     }
 
     @Test
@@ -72,6 +77,22 @@ class CanonicalVersionHasherTest {
     }
 
     @Test
+    void canonicalBytes_serializationFailure_wrapsJsonProcessingException() throws Exception {
+        ObjectMapper mapper = new ObjectMapper() {
+            @Override
+            public byte[] writeValueAsBytes(Object value) throws JsonProcessingException {
+                throw new JsonProcessingException("boom") {
+                };
+            }
+        };
+
+        assertThatThrownBy(() -> CanonicalVersionHasher.canonicalBytes(payload(), mapper))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Version payload cannot be serialized to canonical JSON")
+                .hasCauseInstanceOf(JsonProcessingException.class);
+    }
+
+    @Test
     void version_isContentAddressedAndPrefixed() {
         var version = CanonicalVersionHasher.version(payload());
 
@@ -99,6 +120,14 @@ class CanonicalVersionHasherTest {
     @ValueSource(strings = { "sha256:a", "sha256:b", "sha256:c" })
     void version_differsForDifferentContent(String agentName) {
         assertThat(CanonicalVersionHasher.version(payload())).isNotEqualTo(versionForAgent(agentName));
+    }
+
+    @Test
+    void version_unknownAlgorithm_wrapsNoSuchAlgorithmException() {
+        assertThatThrownBy(() -> CanonicalVersionHasher.version(payload(), "sha-256-invalid"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("sha-256-invalid not available")
+                .hasCauseInstanceOf(java.security.NoSuchAlgorithmException.class);
     }
 
     private static String versionForAgent(String agentName) {

@@ -137,9 +137,9 @@ class AgentConfigurationVersionMapperTest {
 
         assertThat(bob.getVersion()).isEqualTo(alice.getVersion());
         var canonical = new String(CanonicalVersionHasher.canonicalBytes(alice), StandardCharsets.UTF_8);
-        assertThat(canonical.contains("alice")).isFalse();
-        assertThat(canonical.contains("tenant-a")).isFalse();
-        assertThat(canonical.contains("\"version\"")).isFalse();
+        assertThat(canonical).doesNotContain("alice");
+        assertThat(canonical).doesNotContain("tenant-a");
+        assertThat(canonical).doesNotContain("\"version\"");
     }
 
     @Test
@@ -175,9 +175,9 @@ class AgentConfigurationVersionMapperTest {
         var snapshot = mapper.build(agent(false), rules(false), "t", null);
         var json = new String(CanonicalVersionHasher.canonicalBytes(snapshot), StandardCharsets.UTF_8);
 
-        assertThat(json.contains("null")).isFalse();
-        assertThat(json.contains("\n")).isFalse();
-        assertThat(json.contains(": ")).isFalse();
+        assertThat(json).doesNotContain("null");
+        assertThat(json).doesNotContain("\n");
+        assertThat(json).doesNotContain(": ");
         assertThat(json.indexOf("\"agent\"")).isLessThan(json.indexOf("\"compatibility\""));
         assertThat(json.indexOf("\"compatibility\"")).isLessThan(json.indexOf("\"mcpServers\""));
     }
@@ -268,6 +268,7 @@ class AgentConfigurationVersionMapperTest {
 
         var snapshot = mapper.build(agent(false), rules, "t", null);
 
+        assertThat(snapshot.getMcpServers()).isNotEmpty();
         assertThat(snapshot.getMcpServers()).extracting(VersionToolServerDTOV1::getId)
                 .doesNotContain("tool-foreign");
     }
@@ -394,9 +395,9 @@ class AgentConfigurationVersionMapperTest {
         var snapshot = mapper.build(agent(false), rules(false), "t", "alice");
         var json = objectMapper.writeValueAsString(snapshot);
 
-        assertThat(json.contains(PROVIDER_SECRET)).isFalse();
-        assertThat(json.contains(TOOL_SECRET)).isFalse();
-        assertThat(json.contains(GLOBAL_TOOL_SECRET)).isFalse();
+        assertThat(json).doesNotContain(PROVIDER_SECRET);
+        assertThat(json).doesNotContain(TOOL_SECRET);
+        assertThat(json).doesNotContain(GLOBAL_TOOL_SECRET);
         assertThat(json).doesNotContainIgnoringCase("apiKey")
                 .doesNotContainIgnoringCase("authorization")
                 .doesNotContainIgnoringCase("bearer");
