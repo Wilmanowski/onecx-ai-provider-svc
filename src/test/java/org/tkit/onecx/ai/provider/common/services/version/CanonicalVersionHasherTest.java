@@ -77,7 +77,8 @@ class CanonicalVersionHasherTest {
     }
 
     @Test
-    void canonicalBytes_serializationFailure_wrapsJsonProcessingException() throws Exception {
+    void canonicalBytes_serializationFailure_wrapsJsonProcessingException() {
+        var payload = payload();
         ObjectMapper mapper = new ObjectMapper() {
             @Override
             public byte[] writeValueAsBytes(Object value) throws JsonProcessingException {
@@ -86,7 +87,7 @@ class CanonicalVersionHasherTest {
             }
         };
 
-        assertThatThrownBy(() -> CanonicalVersionHasher.canonicalBytes(payload(), mapper))
+        assertThatThrownBy(() -> CanonicalVersionHasher.canonicalBytes(payload, mapper))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Version payload cannot be serialized to canonical JSON")
                 .hasCauseInstanceOf(JsonProcessingException.class);
@@ -124,7 +125,9 @@ class CanonicalVersionHasherTest {
 
     @Test
     void version_unknownAlgorithm_wrapsNoSuchAlgorithmException() {
-        assertThatThrownBy(() -> CanonicalVersionHasher.version(payload(), "sha-256-invalid"))
+        var payload = payload();
+
+        assertThatThrownBy(() -> CanonicalVersionHasher.version(payload, "sha-256-invalid"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("sha-256-invalid not available")
                 .hasCauseInstanceOf(java.security.NoSuchAlgorithmException.class);

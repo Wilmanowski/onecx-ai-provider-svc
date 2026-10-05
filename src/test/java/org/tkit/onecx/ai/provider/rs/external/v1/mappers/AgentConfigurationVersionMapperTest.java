@@ -137,9 +137,7 @@ class AgentConfigurationVersionMapperTest {
 
         assertThat(bob.getVersion()).isEqualTo(alice.getVersion());
         var canonical = new String(CanonicalVersionHasher.canonicalBytes(alice), StandardCharsets.UTF_8);
-        assertThat(canonical).doesNotContain("alice");
-        assertThat(canonical).doesNotContain("tenant-a");
-        assertThat(canonical).doesNotContain("\"version\"");
+        assertThat(canonical).doesNotContain("alice", "tenant-a", "\"version\"");
     }
 
     @Test
@@ -175,9 +173,7 @@ class AgentConfigurationVersionMapperTest {
         var snapshot = mapper.build(agent(false), rules(false), "t", null);
         var json = new String(CanonicalVersionHasher.canonicalBytes(snapshot), StandardCharsets.UTF_8);
 
-        assertThat(json).doesNotContain("null");
-        assertThat(json).doesNotContain("\n");
-        assertThat(json).doesNotContain(": ");
+        assertThat(json).doesNotContain("null", "\n", ": ");
         assertThat(json.indexOf("\"agent\"")).isLessThan(json.indexOf("\"compatibility\""));
         assertThat(json.indexOf("\"compatibility\"")).isLessThan(json.indexOf("\"mcpServers\""));
     }
@@ -395,10 +391,8 @@ class AgentConfigurationVersionMapperTest {
         var snapshot = mapper.build(agent(false), rules(false), "t", "alice");
         var json = objectMapper.writeValueAsString(snapshot);
 
-        assertThat(json).doesNotContain(PROVIDER_SECRET);
-        assertThat(json).doesNotContain(TOOL_SECRET);
-        assertThat(json).doesNotContain(GLOBAL_TOOL_SECRET);
-        assertThat(json).doesNotContainIgnoringCase("apiKey")
+        assertThat(json).doesNotContain(PROVIDER_SECRET, TOOL_SECRET, GLOBAL_TOOL_SECRET)
+                .doesNotContainIgnoringCase("apiKey")
                 .doesNotContainIgnoringCase("authorization")
                 .doesNotContainIgnoringCase("bearer");
     }
