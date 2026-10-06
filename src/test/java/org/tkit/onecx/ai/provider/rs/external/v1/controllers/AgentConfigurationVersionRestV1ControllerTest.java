@@ -8,6 +8,7 @@ import static org.assertj.core.groups.Tuple.tuple;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.tkit.onecx.ai.provider.common.services.version.CanonicalVersionHasher;
 import org.tkit.onecx.ai.provider.rs.external.v1.mappers.AgentConfigurationVersionMapper;
 import org.tkit.onecx.ai.provider.test.AbstractTest;
 import org.tkit.quarkus.security.test.GenerateKeycloakClient;
@@ -43,9 +44,10 @@ class AgentConfigurationVersionRestV1ControllerTest extends AbstractTest {
                 .statusCode(OK.getStatusCode())
                 .extract();
         var versionPayload = response.as(AgentConfigurationVersionDTOV1.class);
+        var validator = CanonicalVersionHasher.validator(versionPayload);
 
         assertThat(versionPayload.getVersion()).startsWith("sha256:");
-        assertThat(response.header("ETag")).isEqualTo("\"" + versionPayload.getVersion() + "\"");
+        assertThat(response.header("ETag")).isEqualTo("\"" + validator + "\"");
         assertThat(response.header("Cache-Control")).contains("no-cache");
 
         assertThat(versionPayload.getContext().getTenantId()).isEqualTo("default");
@@ -145,10 +147,11 @@ class AgentConfigurationVersionRestV1ControllerTest extends AbstractTest {
     @Test
     void getVersion_matchingIfNoneMatch_returnsNotModified() {
         var versionPayload = getVersion("snap-agent-1");
-        var version = versionPayload.getVersion();
+        var validator = CanonicalVersionHasher.validator(versionPayload);
 
         for (var ifNoneMatch : new String[] {
-                "\"" + version + "\"", "W/\"" + version + "\"", version, "*", "\"sha256:other\", W/\"" + version + "\"" }) {
+                "\"" + validator + "\"", "W/\"" + validator + "\"", validator, "*",
+                "\"sha256:other\", W/\"" + validator + "\"" }) {
             var response = given()
                     .auth().oauth2(getKeycloakClientToken("testClient"))
                     .header("If-None-Match", ifNoneMatch)
@@ -157,10 +160,26 @@ class AgentConfigurationVersionRestV1ControllerTest extends AbstractTest {
                     .statusCode(NOT_MODIFIED.getStatusCode())
                     .extract();
 
-            assertThat(response.header("ETag")).isEqualTo("\"" + version + "\"");
+            assertThat(response.header("ETag")).isEqualTo("\"" + validator + "\"");
             assertThat(response.header("Cache-Control")).contains("no-cache", "private");
             assertThat(response.asString()).isEmpty();
         }
+    }
+
+    @Test
+    void getVersion_ifNoneMatchContainsOnlyVersion_returnsPayload() {
+        var versionPayload = getVersion("snap-agent-1");
+
+        var response = given()
+                .auth().oauth2(getKeycloakClientToken("testClient"))
+                .header("If-None-Match", versionPayload.getVersion())
+                .get(VERSION_PATH, "snap-agent-1")
+                .then()
+                .statusCode(OK.getStatusCode())
+                .extract();
+
+        assertThat(response.as(AgentConfigurationVersionDTOV1.class).getVersion()).isEqualTo(versionPayload.getVersion());
+        assertThat(response.header("ETag")).isNotEqualTo("\"" + versionPayload.getVersion() + "\"");
     }
 
     @ParameterizedTest

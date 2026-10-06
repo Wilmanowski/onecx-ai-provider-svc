@@ -15,6 +15,7 @@ import jakarta.ws.rs.core.Response;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 import org.tkit.onecx.ai.provider.common.services.version.AgentConfigurationVersionService;
+import org.tkit.onecx.ai.provider.common.services.version.CanonicalVersionHasher;
 import org.tkit.onecx.ai.provider.common.services.version.VersionGenerationException;
 import org.tkit.onecx.ai.provider.domain.daos.AgentDAO;
 import org.tkit.onecx.ai.provider.rs.external.v1.mappers.AgentMapper;
@@ -54,15 +55,16 @@ public class AgentRestV1Controller implements AgentV1Api {
         if (versionPayload.isEmpty()) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
-        var version = versionPayload.get().getVersion();
-        var tag = new EntityTag(version);
+        var payload = versionPayload.get();
+        var validator = CanonicalVersionHasher.validator(payload);
+        var tag = new EntityTag(validator);
         var cacheControl = new CacheControl();
         cacheControl.setPrivate(true);
         cacheControl.setNoCache(true);
-        if (matches(ifNoneMatch, version)) {
+        if (matches(ifNoneMatch, validator)) {
             return Response.notModified(tag).cacheControl(cacheControl).build();
         }
-        return Response.ok(versionPayload.get()).tag(tag).cacheControl(cacheControl).build();
+        return Response.ok(payload).tag(tag).cacheControl(cacheControl).build();
     }
 
     /**

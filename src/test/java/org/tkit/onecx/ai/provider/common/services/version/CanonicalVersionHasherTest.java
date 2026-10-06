@@ -117,6 +117,26 @@ class CanonicalVersionHasherTest {
         assertThat(CanonicalVersionHasher.version(pinned)).isEqualTo(CanonicalVersionHasher.version(payload()));
     }
 
+    @Test
+    void validator_includesEnvelopeProperties() {
+        var current = payload();
+        var changedContext = payload();
+        changedContext.put("context", Map.of("tenantId", "other"));
+
+        assertThat(CanonicalVersionHasher.validator(changedContext))
+                .isNotEqualTo(CanonicalVersionHasher.validator(current));
+    }
+
+    @Test
+    void validator_unknownAlgorithm_wrapsNoSuchAlgorithmException() {
+        var payload = payload();
+
+        assertThatThrownBy(() -> CanonicalVersionHasher.validator(payload, "sha-256-invalid"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("sha-256-invalid not available")
+                .hasCauseInstanceOf(java.security.NoSuchAlgorithmException.class);
+    }
+
     @ParameterizedTest
     @ValueSource(strings = { "sha256:a", "sha256:b", "sha256:c" })
     void version_differsForDifferentContent(String agentName) {

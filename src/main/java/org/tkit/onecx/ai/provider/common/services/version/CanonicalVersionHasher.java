@@ -57,8 +57,12 @@ public final class CanonicalVersionHasher {
     }
 
     static byte[] canonicalBytes(Object versionPayload, ObjectMapper mapper) {
+        return canonicalBytes(versionPayload, mapper, EXCLUDED_PROPERTIES);
+    }
+
+    static byte[] canonicalBytes(Object versionPayload, ObjectMapper mapper, Set<String> excludedProperties) {
         Map<String, Object> content = mapper.convertValue(versionPayload, TREE);
-        EXCLUDED_PROPERTIES.forEach(content::remove);
+        excludedProperties.forEach(content::remove);
         try {
             return mapper.writeValueAsBytes(content);
         } catch (JsonProcessingException e) {
@@ -74,8 +78,23 @@ public final class CanonicalVersionHasher {
     }
 
     static String version(Object versionPayload, String hashAlgorithm) {
+        return digest(canonicalBytes(versionPayload), hashAlgorithm);
+    }
+
+    /**
+     * @return strong validator for the complete representation, including envelope fields such as context
+     */
+    public static String validator(Object representation) {
+        return validator(representation, HASH_ALGORITHM);
+    }
+
+    static String validator(Object representation, String hashAlgorithm) {
+        return digest(canonicalBytes(representation, MAPPER, Set.of()), hashAlgorithm);
+    }
+
+    private static String digest(byte[] bytes, String hashAlgorithm) {
         try {
-            var digest = MessageDigest.getInstance(hashAlgorithm).digest(canonicalBytes(versionPayload));
+            var digest = MessageDigest.getInstance(hashAlgorithm).digest(bytes);
             return VERSION_PREFIX + HexFormat.of().formatHex(digest);
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(hashAlgorithm + " not available", e);
