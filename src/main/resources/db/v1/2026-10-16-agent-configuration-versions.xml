@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-10-16-agent-configuration-versions" author="onecx">
+        <createTable tableName="agent_configuration_version">
+            <column name="guid" type="VARCHAR(255)">
+                <constraints primaryKey="true" nullable="false" primaryKeyName="agent_configuration_version_pkey"/>
+            </column>
+            <column name="tenant_id" type="VARCHAR(255)"><constraints nullable="false"/></column>
+            <column name="agent_id" type="VARCHAR(255)"><constraints nullable="false"/></column>
+            <column name="name" type="VARCHAR(255)"><constraints nullable="false"/></column>
+            <column name="configuration" type="TEXT"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="agent_configuration_version" columnNames="agent_id,guid"
+                constraintName="uq_agent_configuration_version_owner"/>
+        <addUniqueConstraint tableName="agent_configuration_version" columnNames="tenant_id,agent_id,name"
+            constraintName="uq_agent_configuration_version_name"/>
+        <addForeignKeyConstraint baseTableName="agent_configuration_version" baseColumnNames="agent_id"
+            referencedTableName="agent" referencedColumnNames="guid" constraintName="fk_configuration_version_agent"
+            onDelete="CASCADE"/>
+        <addColumn tableName="agent">
+            <column name="active_configuration_version_id" type="VARCHAR(255)"/>
+        </addColumn>
+        <addForeignKeyConstraint baseTableName="agent" baseColumnNames="guid,active_configuration_version_id"
+                referencedTableName="agent_configuration_version" referencedColumnNames="agent_id,guid"
+                constraintName="fk_agent_active_configuration_version"/>
+    </changeSet>
+</databaseChangeLog>

@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.tkit.onecx.ai.provider.test.AbstractTest;
@@ -22,6 +23,36 @@ import io.quarkus.test.junit.QuarkusTest;
 @WithDBData(value = "data/testdata-internal.xml", deleteBeforeInsert = true, deleteAfterTest = true, rinseAndRepeat = true)
 @GenerateKeycloakClient(clientName = "testClient", scopes = { "ocx-ai:read" })
 class AgentRestV1ControllerTest extends AbstractTest {
+
+    @Test
+    void readOnlyCallerCannotCreateOrActivateVersions() {
+        given().auth().oauth2(getKeycloakClientToken("testClient"))
+                .basePath("/v1/agents").contentType(APPLICATION_JSON)
+                .body(Map.of("name", "Unauthorized"))
+                .post("/agent-11-111/configuration/versions")
+                .then().statusCode(NOT_FOUND.getStatusCode());
+        given().auth().oauth2(getKeycloakClientToken("testClient"))
+                .basePath("/internal/agents").contentType(APPLICATION_JSON)
+                .body(Map.of("name", "Unauthorized"))
+                .post("/agent-11-111/configuration/versions")
+                .then().statusCode(FORBIDDEN.getStatusCode());
+        given().auth().oauth2(getKeycloakClientToken("testClient"))
+                .basePath("/v1/agents")
+                .put("/agent-11-111/configuration/versions/missing/activate")
+                .then().statusCode(NOT_FOUND.getStatusCode());
+        given().auth().oauth2(getKeycloakClientToken("testClient"))
+                .basePath("/v1/agents")
+                .get("/agent-11-111/configuration/versions/missing")
+                .then().statusCode(NOT_FOUND.getStatusCode());
+        given().auth().oauth2(getKeycloakClientToken("testClient"))
+                .basePath("/internal/agents")
+                .get("/agent-11-111/configuration/versions/missing")
+                .then().statusCode(NOT_FOUND.getStatusCode());
+        given().auth().oauth2(getKeycloakClientToken("testClient"))
+                .basePath("/internal/agents")
+                .put("/agent-11-111/configuration/versions/missing/activate")
+                .then().statusCode(FORBIDDEN.getStatusCode());
+    }
 
     @Test
     void findAgentBySearchCriteriaTest() {
@@ -147,14 +178,14 @@ class AgentRestV1ControllerTest extends AbstractTest {
     }
 
     @Test
-    void getAgentConfiguration_duplicateToolRules_returnsConflict() {
+    void getAgentConfiguration_duplicateToolRules_returnsBadRequest() {
         var response = given()
                 .auth().oauth2(getKeycloakClientToken("testClient"))
                 .basePath("/v1/agents")
                 .pathParam("id", "agent-33-333")
                 .get("/{id}/configuration");
 
-        assertThat(response.statusCode()).isEqualTo(CONFLICT.getStatusCode());
+        assertThat(response.statusCode()).isEqualTo(BAD_REQUEST.getStatusCode());
         assertThat(response.jsonPath().getString("errorCode")).isEqualTo("DUPLICATE_AGENT_TOOL_RULE");
     }
 

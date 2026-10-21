@@ -53,6 +53,7 @@ public interface AgentMapper {
     @Mapping(target = "controlTraceabilityManual", ignore = true)
     @Mapping(target = "globalScaffold", ignore = true)
     @Mapping(target = "globalTools", ignore = true)
+    @Mapping(target = "activeConfigurationVersionId", ignore = true)
     Agent mapCreate(CreateAgentRequestDTO createAgentRequestDTO);
 
     @Mapping(target = "modificationCount", source = "updateDTO.modificationCount")
@@ -77,6 +78,7 @@ public interface AgentMapper {
     @Mapping(target = "creationDate", ignore = true)
     @Mapping(target = "creationUser", ignore = true)
     @Mapping(target = "controlTraceabilityManual", ignore = true)
+    @Mapping(target = "activeConfigurationVersionId", ignore = true)
     void mapUpdate(@MappingTarget Agent agent, UpdateAgentRequestDTO updateDTO, HashSet<Tool> tools,
             Model model, Scaffold scaffold, HashSet<AgentGroup> groups);
 }

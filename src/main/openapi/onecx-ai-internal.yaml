@@ -147,6 +147,110 @@ paths:
         "404":
           description: Agent not found
 
+  /internal/agents/{id}/configuration/versions:
+    post:
+      security:
+        - oauth2: [ ocx-ai:all, ocx-ai:write ]
+      tags:
+        - agentInternal
+      operationId: createAgentConfigurationVersion
+      description: Save an immutable version of the currently resolved configuration with a stable unique identifier and a name unique to this agent and tenant. Names are trimmed and case-sensitive. Agents have no active version until the first POST or active-configuration GET. Only the first version becomes active automatically; later versions require explicit activation.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAgentConfigurationVersion'
+      responses:
+        "201":
+          description: Immutable version created
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentConfigurationVersion'
+        "400":
+          description: Invalid name, duplicate version name (DUPLICATE_AGENT_CONFIGURATION_VERSION_NAME), duplicate MCP tool rules (DUPLICATE_AGENT_TOOL_RULE), or invalid configuration dependencies (INVALID_AGENT_CONFIGURATION_DEPENDENCIES)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailResponse'
+        "404":
+          description: Agent not found
+  /internal/agents/{id}/configuration/versions/{versionId}:
+    get:
+      security:
+        - oauth2: [ ocx-ai:all, ocx-ai:read ]
+      tags:
+        - agentInternal
+      operationId: getAgentConfigurationVersion
+      description: Get the saved configuration by its stable identifier, independent of the active version.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Saved configuration
+          content:
+            application/json:
+              schema:
+                $ref: './onecx-ai-v1.yaml#/components/schemas/AgentConfiguration'
+        "404":
+          description: Agent or version not found
+  /internal/agents/{id}/configuration/versions/{versionId}/activate:
+    put:
+      security:
+        - oauth2: [ ocx-ai:all, ocx-ai:write ]
+      tags:
+        - agentInternal
+      operationId: activateAgentConfigurationVersion
+      description: >-
+        Make a saved version active without changing its identifier or content.
+        Reject activation if referenced models, providers, MCP tools or required credentials
+        are missing or incompatible.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Version activated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentConfigurationVersion'
+        "400":
+          description: Invalid configuration dependencies (INVALID_AGENT_CONFIGURATION_DEPENDENCIES)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetailResponse'
+        "404":
+          description: Agent or version not found
   /internal/agents/search:
     post:
       security:
@@ -2388,6 +2492,30 @@ components:
       format: date-time
       type: string
       example: 2022-03-10T12:15:50-04:00
+    CreateAgentConfigurationVersion:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Unique per agent and tenant after trimming leading and trailing whitespace. Case-sensitive.
+          minLength: 1
+          maxLength: 255
+          pattern: '.*\S.*'
+    AgentConfigurationVersion:
+      type: object
+      required:
+        - id
+        - name
+        - active
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        active:
+          type: boolean
     ProblemDetailResponse:
       type: object
       properties:

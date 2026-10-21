@@ -7,7 +7,10 @@ import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinColumns;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
@@ -17,6 +20,7 @@ import org.hibernate.annotations.TenantId;
 import org.tkit.onecx.ai.provider.domain.models.enums.AgentStatus;
 import org.tkit.quarkus.jpa.models.TraceableEntity;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -35,6 +39,18 @@ public class Agent extends TraceableEntity {
 
     @Column(name = "DESCRIPTION")
     private String description;
+
+    @Column(name = "ACTIVE_CONFIGURATION_VERSION_ID")
+    private String activeConfigurationVersionId;
+
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumns(value = {
+            @JoinColumn(name = "GUID", referencedColumnName = "AGENT_ID", insertable = false, updatable = false),
+            @JoinColumn(name = "ACTIVE_CONFIGURATION_VERSION_ID", referencedColumnName = "GUID", insertable = false, updatable = false)
+    }, foreignKey = @ForeignKey(name = "fk_agent_active_configuration_version"))
+    private AgentConfigurationVersion activeConfigurationVersion;
 
     @Column(name = "ADDITIONAL_PROMPT")
     private String additionalPrompt;

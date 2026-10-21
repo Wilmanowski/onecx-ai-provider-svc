@@ -15,10 +15,13 @@ import jakarta.inject.Inject;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.transaction.Transactional;
 import jakarta.validation.ConstraintViolationException;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
+import org.tkit.onecx.ai.provider.common.services.agent.AgentConfigurationService;
 import org.tkit.onecx.ai.provider.common.services.agent.AgentService;
 import org.tkit.onecx.ai.provider.config.AiProviderConfig;
 import org.tkit.onecx.ai.provider.domain.daos.AgentDAO;
@@ -46,6 +49,7 @@ import org.tkit.onecx.ai.provider.rs.internal.mappers.ToolMapper;
 import gen.org.tkit.onecx.ai.provider.rs.internal.AgentInternalApi;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.AgentMcpToolRuleListDTO;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.AgentSearchCriteriaDTO;
+import gen.org.tkit.onecx.ai.provider.rs.internal.model.CreateAgentConfigurationVersionDTO;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.CreateAgentMcpToolRuleRequestDTO;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.CreateAgentRequestDTO;
 import gen.org.tkit.onecx.ai.provider.rs.internal.model.ProblemDetailInvalidParamDTO;
@@ -62,6 +66,12 @@ public class AgentRestController implements AgentInternalApi {
 
     @Inject
     AgentDAO dao;
+
+    @Inject
+    AgentConfigurationService configurationService;
+
+    @Context
+    SecurityContext securityContext;
 
     @Inject
     ToolDAO toolDAO;
@@ -133,6 +143,24 @@ public class AgentRestController implements AgentInternalApi {
         var criteria = mapper.mapCriteria(agentSearchCriteriaDTO);
         var result = dao.findAgentsByCriteria(criteria);
         return Response.ok(mapper.mapPage(result)).build();
+    }
+
+    @Override
+    public Response createAgentConfigurationVersion(String id,
+            CreateAgentConfigurationVersionDTO createAgentConfigurationVersionDTO) {
+        return configurationService.createVersion(id,
+                createAgentConfigurationVersionDTO != null ? createAgentConfigurationVersionDTO.getName() : null,
+                securityContext.getUserPrincipal().getName());
+    }
+
+    @Override
+    public Response getAgentConfigurationVersion(String id, String versionId) {
+        return configurationService.getAgentConfigurationVersion(id, versionId, securityContext.getUserPrincipal().getName());
+    }
+
+    @Override
+    public Response activateAgentConfigurationVersion(String id, String versionId) {
+        return configurationService.activateAgentConfigurationVersion(id, versionId);
     }
 
     @Override
