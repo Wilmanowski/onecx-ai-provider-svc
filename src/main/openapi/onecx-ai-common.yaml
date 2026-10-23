@@ -1,0 +1,149 @@
+openapi: 3.0.3
+info:
+  title: onecx-ai-provider shared schemas
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    AgentConfiguration:
+      type: object
+      required:
+        - schemaVersion
+      properties:
+        schemaVersion:
+          type: string
+        context:
+          $ref: '#/components/schemas/Context'
+        agent:
+          $ref: '#/components/schemas/AgentConfigurationAgent'
+        voice:
+          $ref: '#/components/schemas/VoiceSettings'
+        provider:
+          $ref: '#/components/schemas/ProviderConfiguration'
+        model:
+          $ref: '#/components/schemas/ModelConfiguration'
+        scaffold:
+          $ref: '#/components/schemas/ScaffoldConfiguration'
+        skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillConfiguration'
+        mcpServers:
+          type: array
+          items:
+            $ref: '#/components/schemas/McpServerConfiguration'
+    Context:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        principal:
+          type: string
+    AgentConfigurationAgent:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+    VoiceSettings:
+      type: object
+      properties:
+        voiceEnabled:
+          type: boolean
+        languageCode:
+          type: string
+    ProviderConfiguration:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        description:
+          type: string
+        llmUrl:
+          type: string
+        authMode:
+          type: string
+        credentialRef:
+          type: string
+    ModelConfiguration:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        modelIdentifier:
+          type: string
+        modelConfig:
+          type: string
+        communicationMode:
+          type: string
+    ScaffoldConfiguration:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        systemPrompt:
+          type: string
+    SkillConfiguration:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        instruction:
+          type: string
+        position:
+          type: integer
+          format: int32
+        source:
+          type: string
+          enum: [ TENANT, GLOBAL ]
+    McpServerConfiguration:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        url:
+          type: string
+        credentialRef:
+          type: string
+        unlistedToolPermission:
+          type: string
+          enum: [ DENY, ALWAYS_ASK, ALWAYS_ALLOW ]
+        unlistedToolPermissionSource:
+          type: string
+          enum: [ AGENT_TOOL_RULE, TOOL_EXECUTION_POLICY, SYSTEM_DEFAULT ]
+        toolRules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolRuleConfiguration'
+    ToolRuleConfiguration:
+      type: object
+      properties:
+        toolName:
+          type: string
+        description:
+          type: string
+        permission:
+          type: string
+          enum: [ DENY, ALWAYS_ASK, ALWAYS_ALLOW ]
+        policySource:
+          type: string
+          enum: [ AGENT_TOOL_RULE, TOOL_EXECUTION_POLICY, SYSTEM_DEFAULT ]

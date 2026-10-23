@@ -211,7 +211,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: './onecx-ai-v1.yaml#/components/schemas/AgentConfiguration'
+                $ref: './onecx-ai-common.yaml#/components/schemas/AgentConfiguration'
         "404":
           description: Agent or version not found
   /internal/agents/{id}/configuration/versions/{versionId}/activate:
